@@ -48,6 +48,19 @@ class OdTransactionsScreen extends StatelessWidget {
                   final tx = transactions[index];
                   final isDebit = tx.type == 'Debit';
 
+                  // Calculate balance after this transaction
+                  double balanceAfter = 0.0;
+                  // We need to sum all transactions up to this one (since list is reversed, it's index to end)
+                  for (int i = transactions.length - 1; i >= index; i--) {
+                    if (transactions[i].type == 'Debit') {
+                      balanceAfter += transactions[i].amount;
+                    } else {
+                      balanceAfter -= transactions[i].amount;
+                    }
+                  }
+                  
+                  final dailyInterest = (balanceAfter * account.interestRate) / (365 * 100);
+
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(16),
@@ -56,38 +69,55 @@ class OdTransactionsScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.white10),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Column(
                       children: [
                         Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            CircleAvatar(
-                              backgroundColor: isDebit ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1),
-                              child: Icon(
-                                isDebit ? Icons.arrow_outward : Icons.arrow_downward,
-                                color: isDebit ? Colors.redAccent : Colors.greenAccent,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                            Row(
                               children: [
-                                Text(isDebit ? 'Withdrawal (Debit)' : 'Deposit (Credit)', 
-                                     style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                                Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(tx.date)), 
-                                     style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                                CircleAvatar(
+                                  backgroundColor: isDebit ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1),
+                                  child: Icon(
+                                    isDebit ? Icons.arrow_outward : Icons.arrow_downward,
+                                    color: isDebit ? Colors.redAccent : Colors.greenAccent,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(isDebit ? 'Withdrawal (Debit)' : 'Deposit (Credit)', 
+                                         style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                                    Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(tx.date)), 
+                                         style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                                  ],
+                                ),
                               ],
+                            ),
+                            Text(
+                              '${isDebit ? '-' : '+'}₹${tx.amount.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 18, 
+                                fontWeight: FontWeight.bold, 
+                                color: isDebit ? Colors.redAccent : Colors.greenAccent
+                              ),
                             ),
                           ],
                         ),
-                        Text(
-                          '${isDebit ? '-' : '+'}₹${tx.amount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 18, 
-                            fontWeight: FontWeight.bold, 
-                            color: isDebit ? Colors.redAccent : Colors.greenAccent
+                        if (balanceAfter > 0) ...[
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Divider(color: Colors.white10, height: 1),
                           ),
-                        ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Resulting Balance: ₹${balanceAfter.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                              Text('Daily Interest: ₹${dailyInterest.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   );
