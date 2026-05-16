@@ -24,7 +24,9 @@ class DbSyncService {
         pin VARCHAR(20) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
-      
+    ''');
+    
+    await conn.execute('''
       CREATE TABLE IF NOT EXISTS app_sync_data (
         user_id VARCHAR(20) NOT NULL,
         collection VARCHAR(50) NOT NULL,
