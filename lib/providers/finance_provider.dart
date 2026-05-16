@@ -7,10 +7,10 @@ import '../models/loan.dart';
 import '../models/income_config.dart';
 import '../models/lend_borrow.dart';
 import '../models/investment.dart';
+import '../models/category_budget.dart';
+import '../models/od_account.dart';
 import '../services/db_sync_service.dart';
 import 'dart:math';
-import 'package:flutter/foundation.dart' hide Category;
-
 class FinanceProvider with ChangeNotifier {
   String? _currentUserId;
   String? _currentUserName;
@@ -25,6 +25,9 @@ class FinanceProvider with ChangeNotifier {
   List<LendBorrow> _lendBorrows = [];
   List<Repayment> _repayments = [];
   List<Investment> _investments = [];
+  List<CategoryBudget> _categoryBudgets = [];
+  List<OdAccount> _odAccounts = [];
+  List<OdTransaction> _odTransactions = [];
 
   List<Category> get categories => _categories;
   List<DailyTransaction> get transactions => _transactions;
@@ -33,6 +36,9 @@ class FinanceProvider with ChangeNotifier {
   List<LendBorrow> get lendBorrows => _lendBorrows;
   List<Repayment> get repayments => _repayments;
   List<Investment> get investments => _investments;
+  List<CategoryBudget> get categoryBudgets => _categoryBudgets;
+  List<OdAccount> get odAccounts => _odAccounts;
+  List<OdTransaction> get odTransactions => _odTransactions;
 
   FinanceProvider() {
     _initAuthAndLoad();
@@ -74,6 +80,15 @@ class FinanceProvider with ChangeNotifier {
     
     final invStr = prefs.getString('investments') ?? '[]';
     _investments = (jsonDecode(invStr) as List).map((i) => Investment.fromMap(i)).toList();
+
+    final cbStr = prefs.getString('category_budgets') ?? '[]';
+    _categoryBudgets = (jsonDecode(cbStr) as List).map((i) => CategoryBudget.fromMap(i)).toList();
+
+    final odAccStr = prefs.getString('od_accounts') ?? '[]';
+    _odAccounts = (jsonDecode(odAccStr) as List).map((i) => OdAccount.fromMap(i)).toList();
+
+    final odTxStr = prefs.getString('od_transactions') ?? '[]';
+    _odTransactions = (jsonDecode(odTxStr) as List).map((i) => OdTransaction.fromMap(i)).toList();
 
     _calculateLendBorrowStats();
 
@@ -129,6 +144,18 @@ class FinanceProvider with ChangeNotifier {
       _investments = syncData['investments']!.map((i) => Investment.fromMap(i)).toList();
       await prefs.setString('investments', jsonEncode(_investments.map((e) => e.toMap()).toList()));
     }
+    if (syncData['category_budgets'] != null && syncData['category_budgets']!.isNotEmpty) {
+      _categoryBudgets = syncData['category_budgets']!.map((i) => CategoryBudget.fromMap(i)).toList();
+      await prefs.setString('category_budgets', jsonEncode(_categoryBudgets.map((e) => e.toMap()).toList()));
+    }
+    if (syncData['od_accounts'] != null && syncData['od_accounts']!.isNotEmpty) {
+      _odAccounts = syncData['od_accounts']!.map((i) => OdAccount.fromMap(i)).toList();
+      await prefs.setString('od_accounts', jsonEncode(_odAccounts.map((e) => e.toMap()).toList()));
+    }
+    if (syncData['od_transactions'] != null && syncData['od_transactions']!.isNotEmpty) {
+      _odTransactions = syncData['od_transactions']!.map((i) => OdTransaction.fromMap(i)).toList();
+      await prefs.setString('od_transactions', jsonEncode(_odTransactions.map((e) => e.toMap()).toList()));
+    }
 
     _calculateDynamicLoanStats();
     _calculateLendBorrowStats();
@@ -174,6 +201,9 @@ class FinanceProvider with ChangeNotifier {
     await prefs.remove('lend_borrows');
     await prefs.remove('repayments');
     await prefs.remove('investments');
+    await prefs.remove('category_budgets');
+    await prefs.remove('od_accounts');
+    await prefs.remove('od_transactions');
 
     _currentUserId = null;
     _currentUserName = null;
@@ -184,6 +214,9 @@ class FinanceProvider with ChangeNotifier {
     _lendBorrows = [];
     _repayments = [];
     _investments = [];
+    _categoryBudgets = [];
+    _odAccounts = [];
+    _odTransactions = [];
 
     notifyListeners();
   }
@@ -356,17 +389,70 @@ class FinanceProvider with ChangeNotifier {
   }
 
   double getMonthlyIncome(int month, int year) {
-    try {
-      final config = _incomeConfigs.firstWhere((c) => c.month == month && c.year == year);
-      return config.amount;
-    } catch (e) {
-      try {
-        final def = _incomeConfigs.firstWhere((c) => c.isDefault);
-        return def.amount;
-      } catch (e) {
-        return 0.0;
+    final targetDate = DateTime(year, month);
+    IncomeConfig? bestMatch;
+    DateTime? bestDate;
+
+    for (var config in _incomeConfigs) {
+      final configDate = DateTime(config.year, config.month);
+      if (!configDate.isAfter(targetDate)) {
+        if (bestDate == null || configDate.isAfter(bestDate)) {
+          bestMatch = config;
+          bestDate = configDate;
+        }
       }
     }
+    return bestMatch?.amount ?? 0.0;
+  }
+
+  double getCategoryBudget(int categoryId, int month, int year) {
+    final targetDate = DateTime(year, month);
+    CategoryBudget? bestMatch;
+    DateTime? bestDate;
+
+    // Filter budgets for this specific category
+    final relevantBudgets = _categoryBudgets.where((b) => b.categoryId == categoryId);
+
+    for (var budget in relevantBudgets) {
+      final budgetDate = DateTime(budget.year, budget.month);
+      if (!budgetDate.isAfter(targetDate)) {
+        if (bestDate == null || budgetDate.isAfter(bestDate)) {
+          bestMatch = budget;
+          bestDate = budgetDate;
+        }
+      }
+    }
+
+    if (bestMatch != null) return bestMatch.amount;
+
+    // Fallback: If no budget history exists, use the "plannedAmount" from the Category object itself
+    try {
+      return _categories.firstWhere((c) => c.id == categoryId).plannedAmount;
+    } catch (e) {
+      return 0.0;
+    }
+  }
+
+  Future<void> updateCategoryBudget(int categoryId, int month, int year, double amount) async {
+    final index = _categoryBudgets.indexWhere((b) => b.categoryId == categoryId && b.month == month && b.year == year);
+    if (index != -1) {
+      _categoryBudgets[index] = CategoryBudget(
+        id: _categoryBudgets[index].id,
+        categoryId: categoryId,
+        month: month,
+        year: year,
+        amount: amount,
+      );
+    } else {
+      _categoryBudgets.add(CategoryBudget(
+        id: _generateId(),
+        categoryId: categoryId,
+        month: month,
+        year: year,
+        amount: amount,
+      ));
+    }
+    await _saveData('category_budgets', _categoryBudgets);
   }
 
   double getMonthlyExpenditure(int month, int year) {
@@ -472,5 +558,92 @@ class FinanceProvider with ChangeNotifier {
     return _investments
         .where((inv) => ['RD', 'SIP', 'PPF'].contains(inv.type) && isInvestmentActive(inv))
         .fold(0.0, (sum, inv) => sum + inv.amount);
+  }
+
+  // --- OD Account Methods ---
+  Future<void> addOdAccount(OdAccount account) async {
+    final newAcc = OdAccount(
+      id: account.id ?? _generateId(),
+      name: account.name,
+      limit: account.limit,
+      interestRate: account.interestRate,
+      billingDay: account.billingDay,
+    );
+    _odAccounts.add(newAcc);
+    await _saveData('od_accounts', _odAccounts);
+  }
+
+  Future<void> addOdTransaction(OdTransaction tx) async {
+    final newTx = OdTransaction(
+      id: tx.id ?? _generateId(),
+      odAccountId: tx.odAccountId,
+      amount: tx.amount,
+      type: tx.type,
+      date: tx.date,
+    );
+    _odTransactions.add(newTx);
+    await _saveData('od_transactions', _odTransactions);
+  }
+
+  double getOdUsedAmount(int accountId) {
+    final txs = _odTransactions.where((t) => t.odAccountId == accountId);
+    double used = 0.0;
+    for (var tx in txs) {
+      if (tx.type == 'Debit') {
+        used += tx.amount;
+      } else {
+        used -= tx.amount;
+      }
+    }
+    return used;
+  }
+
+  // Calculate Interest based on Daily Reducing Balance (ICICI Process)
+  double calculateOdInterest(OdAccount account, {bool upToBillingDate = false}) {
+    final now = DateTime.now();
+    DateTime lastBillingDate;
+    
+    // Determine the start of current billing cycle
+    if (now.day >= account.billingDay) {
+      lastBillingDate = DateTime(now.year, now.month, account.billingDay);
+    } else {
+      lastBillingDate = DateTime(now.year, now.month - 1, account.billingDay);
+    }
+
+    DateTime targetEndDate = upToBillingDate 
+      ? DateTime(lastBillingDate.year, lastBillingDate.month + 1, account.billingDay) 
+      : now;
+
+    double totalInterest = 0.0;
+    
+    // Sort transactions by date
+    final sortedTxs = _odTransactions
+        .where((t) => t.odAccountId == account.id)
+        .toList()
+      ..sort((a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)));
+
+    // For each day from last billing date to target end date
+    for (int i = 0; i <= targetEndDate.difference(lastBillingDate).inDays; i++) {
+      DateTime day = lastBillingDate.add(Duration(days: i));
+      
+      // Calculate balance on this specific day
+      double dayBalance = 0.0;
+      for (var tx in sortedTxs) {
+        if (DateTime.parse(tx.date).isAfter(day)) break;
+        if (tx.type == 'Debit') {
+          dayBalance += tx.amount;
+        } else {
+          dayBalance -= tx.amount;
+        }
+      }
+
+      if (dayBalance > 0) {
+        // Daily Interest = (Principal * Rate * Time) / (365 * 100)
+        // Time = 1 day
+        totalInterest += (dayBalance * account.interestRate) / (365 * 100);
+      }
+    }
+
+    return totalInterest;
   }
 }

@@ -8,12 +8,12 @@ import '../models/category.dart';
 class DailyTrackerScreen extends StatelessWidget {
   const DailyTrackerScreen({super.key});
 
-  void _showAddTransactionModal(BuildContext context) {
+  void _showTransactionModal(BuildContext context, {DailyTransaction? transaction}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const AddTransactionSheet(),
+      builder: (ctx) => TransactionSheet(transaction: transaction),
     );
   }
 
@@ -37,6 +37,7 @@ class DailyTrackerScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: ListTile(
+                    onTap: () => _showTransactionModal(context, transaction: tx),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     leading: CircleAvatar(
                       backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.2),
@@ -50,7 +51,7 @@ class DailyTrackerScreen extends StatelessWidget {
                       children: [
                         Text('₹${tx.cost.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         if (tx.cleared)
-                          const Text('Cleared', style: TextStyle(color: Colors.green, fontSize: 12))
+                          const Text('Cleared', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold))
                         else
                           Text('Paid: ₹${tx.paidAmount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.orange, fontSize: 12)),
                       ],
@@ -60,7 +61,7 @@ class DailyTrackerScreen extends StatelessWidget {
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddTransactionModal(context),
+        onPressed: () => _showTransactionModal(context),
         icon: const Icon(Icons.add),
         label: const Text('Add Entry'),
       ),
@@ -68,14 +69,15 @@ class DailyTrackerScreen extends StatelessWidget {
   }
 }
 
-class AddTransactionSheet extends StatefulWidget {
-  const AddTransactionSheet({super.key});
+class TransactionSheet extends StatefulWidget {
+  final DailyTransaction? transaction;
+  const TransactionSheet({super.key, this.transaction});
 
   @override
-  State<AddTransactionSheet> createState() => _AddTransactionSheetState();
+  State<TransactionSheet> createState() => _TransactionSheetState();
 }
 
-class _AddTransactionSheetState extends State<AddTransactionSheet> {
+class _TransactionSheetState extends State<TransactionSheet> {
   final _formKey = GlobalKey<FormState>();
   DateTime _selectedDate = DateTime.now();
   Category? _selectedCategory;
@@ -84,10 +86,25 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   final _paidController = TextEditingController();
   bool _cleared = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.transaction != null) {
+      _selectedDate = DateTime.parse(widget.transaction!.date);
+      _itemController.text = widget.transaction!.itemService;
+      _costController.text = widget.transaction!.cost.toString();
+      _paidController.text = widget.transaction!.paidAmount.toString();
+      _cleared = widget.transaction!.cleared;
+      
+      // We'll set the category in the build method after provider is available
+    }
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final provider = Provider.of<FinanceProvider>(context, listen: false);
       final tx = DailyTransaction(
+        id: widget.transaction?.id,
         date: _selectedDate.toIso8601String(),
         categoryId: _selectedCategory!.id!,
         itemService: _itemController.text,
@@ -95,7 +112,12 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
         paidAmount: double.parse(_paidController.text),
         cleared: _cleared,
       );
-      provider.addTransaction(tx);
+      
+      if (widget.transaction == null) {
+        provider.addTransaction(tx);
+      } else {
+        provider.updateTransaction(tx);
+      }
       Navigator.pop(context);
     }
   }
@@ -103,6 +125,17 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<FinanceProvider>(context);
+    
+    // Set selected category if it's an edit and not already set
+    if (widget.transaction != null && _selectedCategory == null) {
+      try {
+        _selectedCategory = provider.categories.firstWhere((c) => c.id == widget.transaction!.categoryId);
+      } catch (e) {
+        // Handle if category was deleted
+      }
+    }
+
+    final isEdit = widget.transaction != null;
     
     return Container(
       decoration: BoxDecoration(
@@ -121,12 +154,12 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('New Transaction', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              Text(isEdit ? 'Edit Transaction' : 'New Transaction', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text('Date: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
-                trailing: const Icon(Icons.calendar_today),
+                trailing: const Icon(Icons.calendar_today, color: Colors.tealAccent),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -175,24 +208,34 @@ class _AddTransactionSheetState extends State<AddTransactionSheet> {
                   ),
                 ],
               ),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Mark as Cleared'),
-                value: _cleared,
-                onChanged: (val) {
-                  setState(() {
-                    _cleared = val ?? false;
-                    if (_cleared) _paidController.text = _costController.text;
-                  });
-                },
-              ),
+              if (isEdit) ...[
+                const SizedBox(height: 10),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Mark as Cleared'),
+                  value: _cleared,
+                  onChanged: (val) {
+                    setState(() {
+                      _cleared = val ?? false;
+                      if (_cleared) _paidController.text = _costController.text;
+                    });
+                  },
+                  activeColor: Colors.tealAccent,
+                  checkColor: Colors.black,
+                ),
+              ],
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: isEdit ? Colors.blueAccent : Colors.tealAccent,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
                   onPressed: _submit,
-                  child: const Text('Save Entry', style: TextStyle(fontSize: 16)),
+                  child: Text(isEdit ? 'Update Entry' : 'Save Entry', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],

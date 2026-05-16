@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:postgres/postgres.dart';
 import '../providers/finance_provider.dart';
 
@@ -129,6 +128,42 @@ class DbSyncService {
         PRIMARY KEY (user_id, id)
       );
     ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS category_budgets (
+        id VARCHAR(50) NOT NULL,
+        user_id VARCHAR(20) NOT NULL,
+        "categoryId" VARCHAR(50) NOT NULL,
+        month INTEGER NOT NULL,
+        year INTEGER NOT NULL,
+        amount DOUBLE PRECISION NOT NULL,
+        PRIMARY KEY (user_id, "categoryId", month, year)
+      );
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS od_accounts (
+        id VARCHAR(50) NOT NULL,
+        user_id VARCHAR(20) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        "limit" DOUBLE PRECISION NOT NULL,
+        "interestRate" DOUBLE PRECISION NOT NULL,
+        "billingDay" INTEGER NOT NULL,
+        PRIMARY KEY (user_id, id)
+      );
+    ''');
+
+    await conn.execute('''
+      CREATE TABLE IF NOT EXISTS od_transactions (
+        id VARCHAR(50) NOT NULL,
+        user_id VARCHAR(20) NOT NULL,
+        "odAccountId" VARCHAR(50) NOT NULL,
+        amount DOUBLE PRECISION NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        date VARCHAR(50) NOT NULL,
+        PRIMARY KEY (user_id, id)
+      );
+    ''');
   }
 
   static Future<Map<String, dynamic>?> loginUser(String mobile, String pin) async {
@@ -239,6 +274,36 @@ class DbSyncService {
         await invStmt.run([item.id.toString(), userId, item.name, item.type, item.amount, item.expectedRoi, item.tenureMonths, item.startDate]);
       }
 
+      // Category Budgets
+      final cbStmt = await conn.prepare('''
+        INSERT INTO category_budgets (id, user_id, "categoryId", month, year, amount) 
+        VALUES (\$1, \$2, \$3, \$4, \$5, \$6) 
+        ON CONFLICT (user_id, "categoryId", month, year) DO UPDATE SET amount = EXCLUDED.amount;
+      ''');
+      for (final item in provider.categoryBudgets) {
+        await cbStmt.run([item.id.toString(), userId, item.categoryId.toString(), item.month, item.year, item.amount]);
+      }
+
+      // OD Accounts
+      final odStmt = await conn.prepare('''
+        INSERT INTO od_accounts (id, user_id, name, "limit", "interestRate", "billingDay") 
+        VALUES (\$1, \$2, \$3, \$4, \$5, \$6) 
+        ON CONFLICT (user_id, id) DO UPDATE SET name = EXCLUDED.name, "limit" = EXCLUDED."limit", "interestRate" = EXCLUDED."interestRate";
+      ''');
+      for (final item in provider.odAccounts) {
+        await odStmt.run([item.id.toString(), userId, item.name, item.limit, item.interestRate, item.billingDay]);
+      }
+
+      // OD Transactions
+      final odtxStmt = await conn.prepare('''
+        INSERT INTO od_transactions (id, user_id, "odAccountId", amount, type, date) 
+        VALUES (\$1, \$2, \$3, \$4, \$5, \$6) 
+        ON CONFLICT (user_id, id) DO UPDATE SET amount = EXCLUDED.amount, type = EXCLUDED.type, date = EXCLUDED.date;
+      ''');
+      for (final item in provider.odTransactions) {
+        await odtxStmt.run([item.id.toString(), userId, item.odAccountId.toString(), item.amount, item.type, item.date]);
+      }
+
     } finally {
       await conn.close();
     }
@@ -277,6 +342,9 @@ class DbSyncService {
       parsedData['lend_borrows'] = await fetch('lend_borrows');
       parsedData['repayments'] = await fetch('repayments');
       parsedData['investments'] = await fetch('investments');
+      parsedData['category_budgets'] = await fetch('category_budgets');
+      parsedData['od_accounts'] = await fetch('od_accounts');
+      parsedData['od_transactions'] = await fetch('od_transactions');
 
       await provider.overwriteFromSync(parsedData);
 

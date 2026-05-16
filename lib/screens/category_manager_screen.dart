@@ -120,6 +120,16 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
       } else {
         provider.updateCategory(newCat);
       }
+      
+      // Also update the budget for the current month to ensure it carries forward correctly
+      final now = DateTime.now();
+      provider.updateCategoryBudget(
+        widget.category?.id ?? newCat.id!, 
+        now.month, 
+        now.year, 
+        newCat.plannedAmount
+      );
+      
       Navigator.pop(context);
     }
   }

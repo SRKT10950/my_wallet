@@ -194,24 +194,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
                             cells: [
                               const DataCell(Text('Monthly Income', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold))),
-                              DataCell(Text('₹${plannedSaving.toStringAsFixed(0)}')),
-                              DataCell(Text('₹${plannedExpense.toStringAsFixed(0)}')),
+                              DataCell(Text('₹${income.toStringAsFixed(0)}')), // Use actual income
+                              DataCell(Text('₹${expenditure.toStringAsFixed(0)}')), // Use actual expenditure
                             ],
                           ),
-                          DataRow(
-                            cells: [
-                              const DataCell(Text('Current Status', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataCell(Text('₹${provider.currentMonthlySavings.toStringAsFixed(0)}')),
-                              DataCell(Text('₹${houseMaintenanceExpense.toStringAsFixed(0)}')),
-                            ],
-                          ),
-                          DataRow(
-                            cells: [
-                              const DataCell(Text('House mentenance')),
-                              const DataCell(Text('')),
-                              DataCell(Text('₹${houseMaintenanceExpense.toStringAsFixed(0)}')),
-                            ],
-                          ),
+                          ...provider.categories.map((cat) {
+                            final budget = provider.getCategoryBudget(cat.id!, _selectedMonth, _selectedYear);
+                            final spent = provider.transactions
+                                .where((t) => t.categoryId == cat.id && DateTime.parse(t.date).month == _selectedMonth && DateTime.parse(t.date).year == _selectedYear)
+                                .fold(0.0, (sum, t) => sum + t.cost);
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(cat.name)),
+                                DataCell(Text('₹${budget.toStringAsFixed(0)}')),
+                                DataCell(Text('₹${spent.toStringAsFixed(0)}', style: TextStyle(color: spent > budget ? Colors.redAccent : Colors.greenAccent))),
+                              ],
+                            );
+                          }).toList(),
                         ],
                       ),
                     ),

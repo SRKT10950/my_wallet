@@ -3,6 +3,7 @@ import 'loans_screen.dart';
 import 'investments_screen.dart';
 import 'lend_borrow_screen.dart';
 import 'settings_screen.dart';
+import 'od_accounts_screen.dart';
 import '../services/db_sync_service.dart';
 import '../providers/finance_provider.dart';
 import 'package:provider/provider.dart';
@@ -28,6 +29,7 @@ class MoreScreen extends StatelessWidget {
                 _buildMenuCard(context, 'Loans', Icons.account_balance, Colors.orangeAccent, const LoansScreen()),
                 _buildMenuCard(context, 'Investments', Icons.trending_up, Colors.greenAccent, const InvestmentsScreen()),
                 _buildMenuCard(context, 'Lend & Borrow', Icons.compare_arrows, Colors.blueAccent, const LendBorrowScreen()),
+                _buildMenuCard(context, 'OD Accounts', Icons.account_balance_wallet, Colors.cyanAccent, const OdAccountsScreen()),
                 _buildMenuCard(context, 'Settings', Icons.settings, Colors.grey, const SettingsScreen()),
               ],
             ),
