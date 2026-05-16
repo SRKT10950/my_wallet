@@ -111,6 +111,20 @@ class FinanceProvider with ChangeNotifier {
     final jsonStr = jsonEncode(items.map((e) => e.toMap()).toList());
     await prefs.setString(key, jsonStr);
     notifyListeners();
+
+    // Auto-Sync Trigger: Instantly sync after each entry or update if connection is OK
+    if (!kIsWeb && isAuthenticated) {
+      _triggerAutoSync();
+    }
+  }
+
+  // Fire-and-forget background sync
+  void _triggerAutoSync() {
+    DbSyncService.pushToDb(this).then((_) {
+      debugPrint('Auto-sync successful');
+    }).catchError((e) {
+      debugPrint('Auto-sync skipped (Offline or Connection Error): $e');
+    });
   }
 
   Future<void> overwriteFromSync(Map<String, List<Map<String, dynamic>>> syncData) async {
