@@ -16,13 +16,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
+    if (_mobileController.text.isEmpty || _pinController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter all fields')));
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       await Provider.of<FinanceProvider>(context, listen: false).login(
         _mobileController.text,
         _pinController.text,
       );
-      // No need to navigate, main.dart will rebuild and show dashboard
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
     } finally {
@@ -33,69 +36,127 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.lock_person, size: 80, color: Colors.cyanAccent),
-                const SizedBox(height: 24),
-                const Text('COMMAND CENTER', style: TextStyle(color: Colors.cyanAccent, fontSize: 24, fontWeight: FontWeight.w900, letterSpacing: 4)),
-                const Text('SYSTEM ACCESS', style: TextStyle(color: Colors.white70, fontSize: 12, letterSpacing: 2)),
-                const SizedBox(height: 48),
-                _buildField(_mobileController, 'Mobile Number', Icons.phone, keyboardType: TextInputType.phone),
-                const SizedBox(height: 16),
-                _buildField(_pinController, 'Secure PIN', Icons.lock, isPin: true),
-                const SizedBox(height: 32),
-                if (_isLoading)
-                  const CircularProgressIndicator(color: Colors.cyanAccent)
-                else
-                  ElevatedButton(
-                    onPressed: _handleLogin,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.cyanAccent,
-                      foregroundColor: Colors.black,
-                      minimumSize: const Size(double.infinity, 56),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    child: const Text('LOGIN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-                  ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
-                  child: const Text("Don't have an account? Register", style: TextStyle(color: Colors.white70)),
-                ),
-              ],
+      backgroundColor: const Color(0xFF0A0A12),
+      body: Stack(
+        children: [
+          // Futuristic Background Particles/Glow
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.cyanAccent.withOpacity(0.05),
+              ),
             ),
           ),
-        ),
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // App Logo
+                  Container(
+                    width: 120,
+                    height: 120,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.cyanAccent.withOpacity(0.3), width: 2),
+                      boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.1), blurRadius: 20)],
+                    ),
+                    child: ClipOval(
+                      child: Image.asset('assets/logo.png', fit: BoxFit.cover),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    'MY WALLET',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const Text(
+                    'COMMAND CENTER: SYSTEM LOGIN',
+                    style: TextStyle(
+                      color: Colors.cyanAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                  const SizedBox(height: 48),
+                  
+                  _buildGlassField(_mobileController, 'AUTH_MOBILE', Icons.phone, keyboardType: TextInputType.phone),
+                  const SizedBox(height: 16),
+                  _buildGlassField(_pinController, 'AUTH_SECURE_PIN', Icons.lock, isPin: true),
+                  
+                  const SizedBox(height: 32),
+                  if (_isLoading)
+                    const CircularProgressIndicator(color: Colors.cyanAccent)
+                  else
+                    ElevatedButton(
+                      onPressed: _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyanAccent,
+                        foregroundColor: Colors.black,
+                        minimumSize: const Size(double.infinity, 60),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 10,
+                        shadowColor: Colors.cyanAccent.withOpacity(0.4),
+                      ),
+                      child: const Text('INITIALIZE ACCESS', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 2)),
+                    ),
+                  const SizedBox(height: 24),
+                  TextButton(
+                    onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+                    child: RichText(
+                      text: const TextSpan(
+                        text: "NEW SYSTEM USER? ",
+                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                        children: [
+                          TextSpan(
+                            text: "REGISTER HERE",
+                            style: TextStyle(color: Colors.cyanAccent, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool isPin = false}) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      obscureText: isPin,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Colors.white60),
-        prefixIcon: Icon(icon, color: Colors.cyanAccent),
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.05),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.white.withOpacity(0.1))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.cyanAccent)),
+  Widget _buildGlassField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool isPin = false}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        obscureText: isPin,
+        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white38, fontSize: 12, fontWeight: FontWeight.bold),
+          prefixIcon: Icon(icon, color: Colors.cyanAccent, size: 20),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        ),
       ),
     );
   }

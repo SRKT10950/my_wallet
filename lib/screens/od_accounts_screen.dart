@@ -49,6 +49,17 @@ class OdAccountsScreen extends StatelessWidget {
                     final interestToday = provider.calculateOdInterest(acc);
                     final interestBilling = provider.calculateOdInterest(acc, upToBillingDate: true);
 
+                    // Calculate Next Billing Date
+                    final now = DateTime.now();
+                    DateTime nextBilling;
+                    if (now.day < acc.billingDay) {
+                      nextBilling = DateTime(now.year, now.month, acc.billingDay);
+                    } else {
+                      nextBilling = DateTime(now.year, now.month + 1, acc.billingDay);
+                    }
+                    final suffix = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][nextBilling.day % 10];
+                    final formattedBilling = '${nextBilling.day}${nextBilling.day >= 11 && nextBilling.day <= 13 ? 'th' : suffix} ${DateFormat('MMM').format(nextBilling)}';
+
                     return Card(
                       elevation: 8,
                       margin: const EdgeInsets.only(bottom: 20),
@@ -74,7 +85,7 @@ class OdAccountsScreen extends StatelessWidget {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-                                    child: Text('Day ${acc.billingDay} Billing', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                                    child: Text('Billing Date: $formattedBilling', style: const TextStyle(fontSize: 12, color: Colors.white70)),
                                   ),
                                 ],
                               ),
