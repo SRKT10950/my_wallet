@@ -12,7 +12,10 @@ class DbSyncService {
         password: 'wallet@0909090909@',
         port: 5432,
       ),
-      settings: ConnectionSettings(sslMode: SslMode.disable),
+      settings: ConnectionSettings(
+        sslMode: SslMode.disable,
+        connectTimeout: const Duration(seconds: 10),
+      ),
     );
   }
 
