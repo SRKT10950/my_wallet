@@ -27,6 +27,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final toReceive = provider.lendBorrows.where((lb) => lb.type == 'Lend' && lb.status == 'Active').fold(0.0, (sum, lb) => sum + lb.diff);
     final toPay = provider.lendBorrows.where((lb) => lb.type == 'Borrow' && lb.status == 'Active').fold(0.0, (sum, lb) => sum + lb.diff);
 
+    final recurringInvestments = provider.investments.where((inv) => ['RD', 'SIP', 'PPF'].contains(inv.type) && provider.isInvestmentActive(inv)).toList();
+    final totalOdInterest = provider.odAccounts.fold(0.0, (sum, acc) => sum + provider.calculateOdInterest(acc));
+
     // Budget Calculations
     final plannedSaving = income * 0.6;
     final plannedExpense = income * 0.4;
@@ -81,15 +84,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(24),
-                    gradient: const LinearGradient(colors: [Colors.cyanAccent, Colors.blueAccent], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                    boxShadow: [BoxShadow(color: Colors.cyanAccent.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF1e3c72), Color(0xFF2a5298)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blueAccent.withOpacity(0.1),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10),
+                      )
+                    ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Total Balance', style: TextStyle(color: Colors.black54, fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text('Total Balance', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.w600)),
                       const SizedBox(height: 8),
-                      Text('₹${currentBalance.toStringAsFixed(0)}', style: const TextStyle(color: Colors.black, fontSize: 40, fontWeight: FontWeight.w900, letterSpacing: -1)),
+                      Text(
+                        '₹${currentBalance.toStringAsFixed(0)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 42,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.5,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -194,8 +215,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             color: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
                             cells: [
                               const DataCell(Text('Monthly Income', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold))),
-                              DataCell(Text('₹${income.toStringAsFixed(0)}')), // Use actual income
-                              DataCell(Text('₹${expenditure.toStringAsFixed(0)}')), // Use actual expenditure
+                              DataCell(Text('₹${income.toStringAsFixed(0)}')),
+                              const DataCell(Text('₹0')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: [
+                              const DataCell(Text('Planned Saving (60%)', style: TextStyle(color: Colors.greenAccent))),
+                              DataCell(Text('₹${plannedSaving.toStringAsFixed(0)}')),
+                              const DataCell(Text('₹0')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: [
+                              const DataCell(Text('Planned Expense (40%)', style: TextStyle(color: Colors.orangeAccent))),
+                              const DataCell(Text('₹0')),
+                              DataCell(Text('₹${plannedExpense.toStringAsFixed(0)}')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: [
+                              const DataCell(Text('House maintenance', style: TextStyle(color: Colors.pinkAccent))),
+                              const DataCell(Text('₹0')),
+                              DataCell(Text('₹${houseMaintenanceExpense.toStringAsFixed(0)}')),
+                            ],
+                          ),
+                          ...recurringInvestments.map((inv) => DataRow(
+                            cells: [
+                              DataCell(Text('Investment: ${inv.name}', style: const TextStyle(color: Colors.purpleAccent))),
+                              DataCell(Text('₹${inv.amount.toStringAsFixed(0)}')),
+                              const DataCell(Text('₹0')),
+                            ],
+                          )).toList(),
+                          DataRow(
+                            cells: [
+                              const DataCell(Text('Loan EMI', style: TextStyle(color: Colors.deepOrangeAccent))),
+                              const DataCell(Text('₹0')),
+                              DataCell(Text('₹${emi.toStringAsFixed(0)}')),
+                            ],
+                          ),
+                          DataRow(
+                            cells: [
+                              const DataCell(Text('OD EMI (Interest)', style: TextStyle(color: Colors.redAccent))),
+                              const DataCell(Text('₹0')),
+                              DataCell(Text('₹${totalOdInterest.toStringAsFixed(0)}')),
                             ],
                           ),
                           ...provider.categories.map((cat) {
@@ -206,8 +269,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             return DataRow(
                               cells: [
                                 DataCell(Text(cat.name)),
-                                DataCell(Text('₹${budget.toStringAsFixed(0)}')),
-                                DataCell(Text('₹${spent.toStringAsFixed(0)}', style: TextStyle(color: spent > budget ? Colors.redAccent : Colors.greenAccent))),
+                                const DataCell(Text('')), // Budget is not a saving
+                                DataCell(
+                                  Text(
+                                    '₹${spent.toStringAsFixed(0)} / ₹${budget.toStringAsFixed(0)}',
+                                    style: TextStyle(
+                                      color: spent > budget ? Colors.redAccent : Colors.greenAccent,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ),
                               ],
                             );
                           }).toList(),
