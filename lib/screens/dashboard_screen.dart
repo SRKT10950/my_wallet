@@ -30,10 +30,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final recurringInvestments = provider.investments.where((inv) => ['RD', 'SIP', 'PPF'].contains(inv.type) && provider.isInvestmentActive(inv)).toList();
     final totalOdInterest = provider.odAccounts.fold(0.0, (sum, acc) => sum + provider.calculateOdInterest(acc));
 
-    // Budget Calculations
-    final plannedSaving = income * 0.6;
-    final plannedExpense = income * 0.4;
-    final houseMaintenanceExpense = plannedExpense * 0.7;
+    // Budget Calculations (70/30 ratio based on user image)
+    final plannedSaving = income * 0.7;
+    final plannedExpense = income * 0.3;
+    
+    // Actual Totals
+    final actualSaving = provider.currentMonthlySavings;
+    final actualExpenditure = expenditure + emi + totalOdInterest;
+
+    // Specific category expenditures
+    double getCatSpent(String name) {
+      final cat = provider.categories.where((c) => c.name.toLowerCase() == name.toLowerCase()).firstOrNull;
+      if (cat == null) return 0.0;
+      return provider.transactions
+          .where((t) => t.categoryId == cat.id && DateTime.parse(t.date).month == _selectedMonth && DateTime.parse(t.date).year == _selectedYear)
+          .fold(0.0, (sum, t) => sum + t.cost);
+    }
+
+    double getInvAmount(String type) {
+      return provider.investments
+          .where((inv) => inv.type.toLowerCase() == type.toLowerCase() && provider.isInvestmentActive(inv))
+          .fold(0.0, (sum, inv) => sum + inv.amount);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -116,63 +134,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Combined Lend & Borrow Box
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white12, width: 1.5),
-                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Lend & Borrow', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildSplitStat('To Receive', toReceive, Icons.arrow_downward, Colors.greenAccent),
-                          ),
-                          Container(width: 1, height: 40, color: Colors.white12),
-                          Expanded(
-                            child: _buildSplitStat('To Pay', toPay, Icons.arrow_upward, Colors.redAccent),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Combined Loans Box
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: Colors.white12, width: 1.5),
-                    boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 4))],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Loans', style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildSplitStat('Active EMI', emi, Icons.calendar_today, Colors.orangeAccent),
-                          ),
-                          Container(width: 1, height: 40, color: Colors.white12),
-                          Expanded(
-                            child: _buildSplitStat('Pending Loan', pendingLoan, Icons.account_balance, Colors.deepOrangeAccent),
-                          ),
-                        ],
-                      )
-                    ],
-                  ),
+                // Quick Stats Grid
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 2.5,
+                  children: [
+                    _buildQuickStat('Receive', toReceive, Icons.arrow_downward, Colors.greenAccent),
+                    _buildQuickStat('Pay', toPay, Icons.arrow_upward, Colors.redAccent),
+                    _buildQuickStat('EMI', emi, Icons.event_repeat_rounded, Colors.orangeAccent),
+                    _buildQuickStat('Pending', pendingLoan, Icons.account_balance_wallet_rounded, Colors.deepOrangeAccent),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 
@@ -206,79 +181,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       child: DataTable(
                         headingRowColor: WidgetStateProperty.all(Colors.black12),
                         columns: const [
-                          DataColumn(label: Text('Category', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Savings', style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text('Expense', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Income', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Saving', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('Expenditure', style: TextStyle(fontWeight: FontWeight.bold))),
                         ],
                         rows: [
+                          // Row 1: Planned Budget
                           DataRow(
-                            color: WidgetStateProperty.all(Colors.blueAccent.withOpacity(0.15)),
+                            color: WidgetStateProperty.all(Colors.white.withOpacity(0.05)),
                             cells: [
-                              const DataCell(Text('Monthly Income', style: TextStyle(color: Colors.lightBlueAccent, fontWeight: FontWeight.bold))),
-                              DataCell(Text('₹${income.toStringAsFixed(0)}')),
-                              const DataCell(Text('₹0')),
-                            ],
-                          ),
-                          DataRow(
-                            cells: [
-                              const DataCell(Text('Planned Saving (60%)', style: TextStyle(color: Colors.greenAccent))),
+                              DataCell(Text('₹${income.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold))),
                               DataCell(Text('₹${plannedSaving.toStringAsFixed(0)}')),
-                              const DataCell(Text('₹0')),
-                            ],
-                          ),
-                          DataRow(
-                            cells: [
-                              const DataCell(Text('Planned Expense (40%)', style: TextStyle(color: Colors.orangeAccent))),
-                              const DataCell(Text('₹0')),
                               DataCell(Text('₹${plannedExpense.toStringAsFixed(0)}')),
                             ],
                           ),
+                          // Row 2: Current Status (Actuals)
                           DataRow(
                             cells: [
-                              const DataCell(Text('House maintenance', style: TextStyle(color: Colors.pinkAccent))),
-                              const DataCell(Text('₹0')),
-                              DataCell(Text('₹${houseMaintenanceExpense.toStringAsFixed(0)}')),
+                              const DataCell(Text('Current Status', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold))),
+                              DataCell(Text('₹${actualSaving.toStringAsFixed(0)}')),
+                              DataCell(Text('₹${actualExpenditure.toStringAsFixed(0)}')),
                             ],
                           ),
-                          ...recurringInvestments.map((inv) => DataRow(
-                            cells: [
-                              DataCell(Text('Investment: ${inv.name}', style: const TextStyle(color: Colors.purpleAccent))),
-                              DataCell(Text('₹${inv.amount.toStringAsFixed(0)}')),
-                              const DataCell(Text('₹0')),
-                            ],
-                          )).toList(),
-                          DataRow(
-                            cells: [
-                              const DataCell(Text('Loan EMI', style: TextStyle(color: Colors.deepOrangeAccent))),
-                              const DataCell(Text('₹0')),
-                              DataCell(Text('₹${emi.toStringAsFixed(0)}')),
-                            ],
-                          ),
-                          DataRow(
-                            cells: [
-                              const DataCell(Text('OD EMI (Interest)', style: TextStyle(color: Colors.redAccent))),
-                              const DataCell(Text('₹0')),
-                              DataCell(Text('₹${totalOdInterest.toStringAsFixed(0)}')),
-                            ],
-                          ),
-                          ...provider.categories.map((cat) {
-                            final budget = provider.getCategoryBudget(cat.id!, _selectedMonth, _selectedYear);
-                            final spent = provider.transactions
-                                .where((t) => t.categoryId == cat.id && DateTime.parse(t.date).month == _selectedMonth && DateTime.parse(t.date).year == _selectedYear)
-                                .fold(0.0, (sum, t) => sum + t.cost);
+                          // Investment Rows (Savings)
+                          ...['PPF', 'SIP', 'LIC', 'Share', 'Short Term', 'Long Term'].map((type) {
+                            final amt = getInvAmount(type);
                             return DataRow(
                               cells: [
-                                DataCell(Text(cat.name)),
-                                const DataCell(Text('')), // Budget is not a saving
-                                DataCell(
-                                  Text(
-                                    '₹${spent.toStringAsFixed(0)} / ₹${budget.toStringAsFixed(0)}',
-                                    style: TextStyle(
-                                      color: spent > budget ? Colors.redAccent : Colors.greenAccent,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
+                                DataCell(Text(type)),
+                                DataCell(Text('₹${amt.toStringAsFixed(0)}')),
+                                const DataCell(Text('')),
+                              ],
+                            );
+                          }).toList(),
+                          // Expenditure Rows
+                          DataRow(
+                            cells: [
+                              const DataCell(Text('Loan')),
+                              const DataCell(Text('')),
+                              DataCell(Text('₹${(emi + totalOdInterest).toStringAsFixed(0)}')),
+                            ],
+                          ),
+                          ...['Family', 'Donation', 'House maintenance'].map((catName) {
+                            final spent = getCatSpent(catName);
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(catName)),
+                                const DataCell(Text('')),
+                                DataCell(Text('₹${spent.toStringAsFixed(0)}')),
                               ],
                             );
                           }).toList(),
@@ -313,6 +263,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
           items: items.map((e) => DropdownMenuItem(value: e, child: Text(labelBuilder != null ? labelBuilder(e) : e.toString(), style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
           onChanged: onChanged,
         ),
+      ),
+    );
+  }
+
+  Widget _buildQuickStat(String title, double amount, IconData icon, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w500)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    '₹${amount.toStringAsFixed(0)}',
+                    style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
       ),
     );
   }
