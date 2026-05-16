@@ -12,6 +12,12 @@ import 'dart:math';
 import 'package:flutter/foundation.dart' hide Category;
 
 class FinanceProvider with ChangeNotifier {
+  String? _currentUserId;
+  String? _currentUserName;
+  String? get currentUserId => _currentUserId;
+  String? get currentUserName => _currentUserName;
+  bool get isAuthenticated => _currentUserId != null;
+
   List<Category> _categories = [];
   List<DailyTransaction> _transactions = [];
   List<Loan> _loans = [];
@@ -29,10 +35,22 @@ class FinanceProvider with ChangeNotifier {
   List<Investment> get investments => _investments;
 
   FinanceProvider() {
-    loadAllData();
+    _initAuthAndLoad();
+  }
+
+  Future<void> _initAuthAndLoad() async {
+    final prefs = await SharedPreferences.getInstance();
+    _currentUserId = prefs.getString('user_id');
+    _currentUserName = prefs.getString('user_name');
+    
+    if (isAuthenticated) {
+      await loadAllData();
+    }
+    notifyListeners();
   }
 
   Future<void> loadAllData() async {
+    if (!isAuthenticated) return;
     final prefs = await SharedPreferences.getInstance();
 
     final catsStr = prefs.getString('categories') ?? '[]';
@@ -114,6 +132,59 @@ class FinanceProvider with ChangeNotifier {
 
     _calculateDynamicLoanStats();
     _calculateLendBorrowStats();
+    notifyListeners();
+  }
+
+  Future<void> login(String mobile, String pin) async {
+    final userData = await DbSyncService.loginUser(mobile, pin);
+    if (userData != null) {
+      _currentUserId = userData['mobile_number'];
+      _currentUserName = userData['name'];
+      
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_id', _currentUserId!);
+      await prefs.setString('user_name', _currentUserName!);
+      
+      await loadAllData(); // Load local data and trigger sync
+      notifyListeners();
+    } else {
+      throw Exception('Invalid Mobile Number or PIN');
+    }
+  }
+
+  Future<void> register(String name, String mobile, String pin) async {
+    final success = await DbSyncService.registerUser(name, mobile, pin);
+    if (success) {
+      await login(mobile, pin);
+    } else {
+      throw Exception('Mobile Number already registered');
+    }
+  }
+
+  Future<void> logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_id');
+    await prefs.remove('user_name');
+    
+    // Clear local data to prevent leakage to next user
+    await prefs.remove('categories');
+    await prefs.remove('transactions');
+    await prefs.remove('loans');
+    await prefs.remove('income_config');
+    await prefs.remove('lend_borrows');
+    await prefs.remove('repayments');
+    await prefs.remove('investments');
+
+    _currentUserId = null;
+    _currentUserName = null;
+    _categories = [];
+    _transactions = [];
+    _loans = [];
+    _incomeConfigs = [];
+    _lendBorrows = [];
+    _repayments = [];
+    _investments = [];
+
     notifyListeners();
   }
 

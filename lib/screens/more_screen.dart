@@ -32,6 +32,7 @@ class MoreScreen extends StatelessWidget {
               ],
             ),
           ),
+          const UserProfileWidget(),
           const SyncWidget(),
         ],
       ),
@@ -57,6 +58,64 @@ class MoreScreen extends StatelessWidget {
             Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class UserProfileWidget extends StatelessWidget {
+  const UserProfileWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<FinanceProvider>(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.03),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            backgroundColor: Colors.cyanAccent,
+            child: Icon(Icons.person, color: Colors.black),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(provider.currentUserName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(provider.currentUserId ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout?'),
+                  content: const Text('This will clear local data and require you to login again to sync.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () {
+                        provider.logout();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Logout', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
