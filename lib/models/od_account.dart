@@ -25,7 +25,7 @@ class OdAccount {
 
   factory OdAccount.fromMap(Map<String, dynamic> map) {
     return OdAccount(
-      id: map['id'],
+      id: map['id'] is int ? map['id'] : int.tryParse(map['id'].toString()),
       name: map['name'],
       limit: (map['limit'] ?? 0.0).toDouble(),
       interestRate: (map['interestRate'] ?? 0.0).toDouble(),
@@ -61,8 +61,8 @@ class OdTransaction {
 
   factory OdTransaction.fromMap(Map<String, dynamic> map) {
     return OdTransaction(
-      id: map['id'],
-      odAccountId: map['odAccountId'],
+      id: map['id'] is int ? map['id'] : int.tryParse(map['id'].toString()),
+      odAccountId: map['odAccountId'] is int ? map['odAccountId'] : int.parse(map['odAccountId'].toString()),
       amount: (map['amount'] ?? 0.0).toDouble(),
       type: map['type'],
       date: map['date'],

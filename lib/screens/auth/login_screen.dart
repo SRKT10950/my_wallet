@@ -83,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const Text(
-                    'COMMAND CENTER: SYSTEM LOGIN',
+                    'YSTEM LOGIN',
                     style: TextStyle(
                       color: Colors.cyanAccent,
                       fontSize: 12,
@@ -93,9 +93,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 48),
                   
-                  _buildGlassField(_mobileController, 'AUTH_MOBILE', Icons.phone, keyboardType: TextInputType.phone),
+                  _buildGlassField(_mobileController, 'MOBILE NUMBER', Icons.phone, keyboardType: TextInputType.phone),
                   const SizedBox(height: 16),
-                  _buildGlassField(_pinController, 'AUTH_SECURE_PIN', Icons.lock, isPin: true),
+                  _buildGlassField(_pinController, 'PIN', Icons.lock, isPin: true),
                   
                   const SizedBox(height: 32),
                   if (_isLoading)

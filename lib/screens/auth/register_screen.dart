@@ -75,7 +75,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
               ),
               const Text(
-                'CREATE COMMAND CENTER CREDENTIALS',
+                'CREATE CREDENTIALS',
                 style: TextStyle(
                   color: Colors.cyanAccent,
                   fontSize: 10,
@@ -85,11 +85,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 40),
               
-              _buildGlassField(_nameController, 'USER_FULL_NAME', Icons.person),
+              _buildGlassField(_nameController, 'USER FULL NAME', Icons.person),
               const SizedBox(height: 16),
-              _buildGlassField(_mobileController, 'AUTH_MOBILE_ID', Icons.phone, keyboardType: TextInputType.phone),
+              _buildGlassField(_mobileController, 'AUTH MOBILE ID', Icons.phone, keyboardType: TextInputType.phone),
               const SizedBox(height: 16),
-              _buildGlassField(_pinController, 'SECURE_PIN_KEY', Icons.lock, isPin: true),
+              _buildGlassField(_pinController, 'SECURE PIN KEY', Icons.lock, isPin: true),
               const SizedBox(height: 16),
               _buildGlassField(_confirmPinController, 'CONFIRM_PIN_KEY', Icons.lock_outline, isPin: true),
               

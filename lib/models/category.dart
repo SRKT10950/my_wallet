@@ -19,9 +19,9 @@ class Category {
 
   factory Category.fromMap(Map<String, dynamic> map) {
     return Category(
-      id: map['id'],
+      id: map['id'] is int ? map['id'] : int.tryParse(map['id'].toString()),
       name: map['name'],
-      plannedAmount: map['plannedAmount'],
+      plannedAmount: (map['plannedAmount'] ?? 0.0).toDouble(),
     );
   }
 }

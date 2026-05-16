@@ -33,13 +33,13 @@ class DailyTransaction {
 
   factory DailyTransaction.fromMap(Map<String, dynamic> map) {
     return DailyTransaction(
-      id: map['id'],
+      id: map['id'] is int ? map['id'] : int.tryParse(map['id'].toString()),
       date: map['date'],
-      categoryId: map['categoryId'],
+      categoryId: map['categoryId'] is int ? map['categoryId'] : int.parse(map['categoryId'].toString()),
       itemService: map['itemService'],
-      cost: map['cost'],
-      paidAmount: map['paidAmount'],
-      cleared: map['cleared'] == 1,
+      cost: (map['cost'] ?? 0.0).toDouble(),
+      paidAmount: (map['paidAmount'] ?? 0.0).toDouble(),
+      cleared: map['cleared'] == 1 || map['cleared'] == true,
     );
   }
 }
