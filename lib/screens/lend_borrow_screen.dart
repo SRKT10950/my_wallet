@@ -60,6 +60,15 @@ class LendBorrowList extends StatelessWidget {
     );
   }
 
+  void _showAddLendBorrowModal(BuildContext context, {LendBorrow? lendBorrow}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => AddLendBorrowSheet(lendBorrow: lendBorrow),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<FinanceProvider>(context);
@@ -90,11 +99,22 @@ class LendBorrowList extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Flexible(child: Text(lb.name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), overflow: TextOverflow.ellipsis)),
-                      const SizedBox(width: 8),
-                      Chip(
-                        label: Text(lb.status, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                        backgroundColor: lb.status == 'Active' ? Colors.blue : Colors.green,
-                        side: BorderSide.none,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit, size: 20, color: Colors.blueAccent),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => _showAddLendBorrowModal(context, lendBorrow: lb),
+                          ),
+                          const SizedBox(width: 8),
+                          Chip(
+                            label: Text(lb.status, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                            backgroundColor: lb.status == 'Active' ? Colors.blue : Colors.green,
+                            side: BorderSide.none,
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -125,7 +145,8 @@ class LendBorrowList extends StatelessWidget {
 }
 
 class AddLendBorrowSheet extends StatefulWidget {
-  const AddLendBorrowSheet({super.key});
+  final LendBorrow? lendBorrow;
+  const AddLendBorrowSheet({super.key, this.lendBorrow});
   @override
   State<AddLendBorrowSheet> createState() => _AddLendBorrowSheetState();
 }
@@ -137,22 +158,47 @@ class _AddLendBorrowSheetState extends State<AddLendBorrowSheet> {
   String _selectedType = 'Lend';
   DateTime _selectedDate = DateTime.now();
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.lendBorrow != null) {
+      _nameController.text = widget.lendBorrow!.name;
+      _principalController.text = widget.lendBorrow!.principal.toStringAsFixed(0);
+      _selectedType = widget.lendBorrow!.type;
+      _selectedDate = DateTime.parse(widget.lendBorrow!.date);
+    }
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final provider = Provider.of<FinanceProvider>(context, listen: false);
-      provider.addLendBorrow(LendBorrow(
+      final isEdit = widget.lendBorrow != null;
+      final updated = LendBorrow(
+        id: isEdit ? widget.lendBorrow!.id : null,
         name: _nameController.text,
         type: _selectedType,
         date: _selectedDate.toIso8601String(),
-        tenure: 0, // Automatically calculated
+        tenure: isEdit ? widget.lendBorrow!.tenure : 0,
         principal: double.parse(_principalController.text),
-      ));
+        settled: isEdit ? widget.lendBorrow!.settled : 0.0,
+        returnDate: isEdit ? widget.lendBorrow!.returnDate : '',
+        status: isEdit ? widget.lendBorrow!.status : 'Active',
+      );
+
+      if (isEdit) {
+        provider.updateLendBorrow(updated);
+      } else {
+        provider.addLendBorrow(updated);
+      }
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.lendBorrow != null;
+    final provider = Provider.of<FinanceProvider>(context);
+
     return Container(
       decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, borderRadius: const BorderRadius.vertical(top: Radius.circular(24))),
       padding: EdgeInsets.only(top: 24, left: 24, right: 24, bottom: MediaQuery.of(context).viewInsets.bottom + 24),
@@ -161,7 +207,7 @@ class _AddLendBorrowSheetState extends State<AddLendBorrowSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('New Entry', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text(isEdit ? 'Edit Entry' : 'New Entry', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: _selectedType,
@@ -193,13 +239,58 @@ class _AddLendBorrowSheetState extends State<AddLendBorrowSheet> {
               },
             ),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                onPressed: _submit,
-                child: const Text('Add Entry', style: TextStyle(fontSize: 16)),
-              ),
+            Row(
+              children: [
+                if (isEdit) ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete Entry'),
+                            content: const Text('Are you sure you want to delete this entry and all its repayments?'),
+                            actions: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel')),
+                              TextButton(
+                                onPressed: () {
+                                  provider.deleteLendBorrow(widget.lendBorrow!.id!);
+                                  Navigator.pop(ctx);
+                                  Navigator.pop(context);
+                                },
+                                child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Delete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                ],
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.tealAccent,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: _submit,
+                    child: Text(isEdit ? 'Update' : 'Add Entry', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -233,6 +324,97 @@ class _RepaymentsSheetState extends State<RepaymentsSheet> {
       ));
       _amountController.clear();
     }
+  }
+
+  void _confirmDeleteRepayment(BuildContext context, Repayment repayment) {
+    final provider = Provider.of<FinanceProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Repayment'),
+        content: const Text('Are you sure you want to delete this repayment?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              provider.deleteRepayment(repayment.id!);
+              Navigator.pop(ctx);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditRepaymentDialog(BuildContext context, Repayment repayment) {
+    final provider = Provider.of<FinanceProvider>(context, listen: false);
+    final amountController = TextEditingController(text: repayment.amount.toStringAsFixed(0));
+    String selectedMethod = repayment.method;
+    DateTime selectedDate = DateTime.parse(repayment.paymentDate);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Repayment'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: amountController,
+                  decoration: const InputDecoration(labelText: 'Amount (₹)', border: OutlineInputBorder()),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedMethod,
+                  decoration: const InputDecoration(labelText: 'Method', border: OutlineInputBorder()),
+                  items: ['Cash', 'UPI', 'Bank Transfer'].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (v) => setState(() => selectedMethod = v!),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: Text('Date: ${DateFormat('yyyy-MM-dd').format(selectedDate)}'),
+                  trailing: const Icon(Icons.calendar_today, color: Colors.tealAccent),
+                  onTap: () async {
+                    final picked = await showDatePicker(context: context, initialDate: selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2101));
+                    if (picked != null) setState(() => selectedDate = picked);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (amountController.text.isNotEmpty) {
+                  provider.updateRepayment(Repayment(
+                    id: repayment.id,
+                    lendBorrowId: repayment.lendBorrowId,
+                    name: repayment.name,
+                    paymentDate: selectedDate.toIso8601String(),
+                    amount: double.parse(amountController.text),
+                    method: selectedMethod,
+                  ));
+                  Navigator.pop(ctx);
+                }
+              },
+              child: const Text('Save', style: TextStyle(color: Colors.tealAccent)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -318,6 +500,19 @@ class _RepaymentsSheetState extends State<RepaymentsSheet> {
                         leading: CircleAvatar(backgroundColor: Colors.tealAccent.withOpacity(0.2), child: const Icon(Icons.check, color: Colors.tealAccent)),
                         title: Text('₹${r.amount.toStringAsFixed(0)} via ${r.method}'),
                         subtitle: Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(r.paymentDate))),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, size: 20, color: Colors.blueAccent),
+                              onPressed: () => _showEditRepaymentDialog(context, r),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, size: 20, color: Colors.redAccent),
+                              onPressed: () => _confirmDeleteRepayment(context, r),
+                            ),
+                          ],
+                        ),
                       );
                     },
                   ),

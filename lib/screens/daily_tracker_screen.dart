@@ -225,18 +225,59 @@ class _TransactionSheetState extends State<TransactionSheet> {
                 ),
               ],
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    backgroundColor: isEdit ? Colors.blueAccent : Colors.tealAccent,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              Row(
+                children: [
+                  if (isEdit) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete Entry'),
+                              content: const Text('Are you sure you want to delete this transaction?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    provider.deleteTransaction(widget.transaction!.id!);
+                                    Navigator.pop(ctx);
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Delete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: isEdit ? Colors.blueAccent : Colors.tealAccent,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _submit,
+                      child: Text(isEdit ? 'Update' : 'Save Entry', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
                   ),
-                  onPressed: _submit,
-                  child: Text(isEdit ? 'Update Entry' : 'Save Entry', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
+                ],
               ),
             ],
           ),

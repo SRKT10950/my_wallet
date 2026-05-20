@@ -356,6 +356,11 @@ class FinanceProvider with ChangeNotifier {
     }
   }
 
+  Future<void> deleteTransaction(int id) async {
+    _transactions.removeWhere((t) => t.id == id);
+    await _saveData('transactions', _transactions);
+  }
+
   // --- Loan Methods ---
   Future<void> addLoan(Loan loan) async {
     final newLoan = Loan(
@@ -376,6 +381,20 @@ class FinanceProvider with ChangeNotifier {
     );
     _loans.add(newLoan);
     _calculateDynamicLoanStats(); // Also updates the just-added loan
+    await _saveData('loans', _loans);
+  }
+
+  Future<void> updateLoan(Loan loan) async {
+    final index = _loans.indexWhere((l) => l.id == loan.id);
+    if (index != -1) {
+      _loans[index] = loan;
+      _calculateDynamicLoanStats();
+      await _saveData('loans', _loans);
+    }
+  }
+
+  Future<void> deleteLoan(int id) async {
+    _loans.removeWhere((l) => l.id == id);
     await _saveData('loans', _loans);
   }
 
@@ -495,6 +514,22 @@ class FinanceProvider with ChangeNotifier {
     await _saveData('lend_borrows', _lendBorrows);
   }
 
+  Future<void> updateLendBorrow(LendBorrow lb) async {
+    final index = _lendBorrows.indexWhere((item) => item.id == lb.id);
+    if (index != -1) {
+      _lendBorrows[index] = lb;
+      _calculateLendBorrowStats();
+      await _saveData('lend_borrows', _lendBorrows);
+    }
+  }
+
+  Future<void> deleteLendBorrow(int id) async {
+    _lendBorrows.removeWhere((item) => item.id == id);
+    _repayments.removeWhere((r) => r.lendBorrowId == id);
+    await _saveData('repayments', _repayments);
+    await _saveData('lend_borrows', _lendBorrows);
+  }
+
   Future<void> addRepayment(Repayment r) async {
     final newRep = Repayment(
       id: r.id ?? _generateId(),
@@ -505,6 +540,21 @@ class FinanceProvider with ChangeNotifier {
       method: r.method,
     );
     _repayments.add(newRep);
+    _calculateLendBorrowStats();
+    await _saveData('repayments', _repayments);
+  }
+
+  Future<void> updateRepayment(Repayment r) async {
+    final index = _repayments.indexWhere((item) => item.id == r.id);
+    if (index != -1) {
+      _repayments[index] = r;
+      _calculateLendBorrowStats();
+      await _saveData('repayments', _repayments);
+    }
+  }
+
+  Future<void> deleteRepayment(int id) async {
+    _repayments.removeWhere((item) => item.id == id);
     _calculateLendBorrowStats();
     await _saveData('repayments', _repayments);
   }
@@ -521,6 +571,19 @@ class FinanceProvider with ChangeNotifier {
       startDate: inv.startDate,
     );
     _investments.add(newInv);
+    await _saveData('investments', _investments);
+  }
+
+  Future<void> updateInvestment(Investment inv) async {
+    final index = _investments.indexWhere((item) => item.id == inv.id);
+    if (index != -1) {
+      _investments[index] = inv;
+      await _saveData('investments', _investments);
+    }
+  }
+
+  Future<void> deleteInvestment(int id) async {
+    _investments.removeWhere((item) => item.id == id);
     await _saveData('investments', _investments);
   }
 
@@ -587,6 +650,21 @@ class FinanceProvider with ChangeNotifier {
     await _saveData('od_accounts', _odAccounts);
   }
 
+  Future<void> updateOdAccount(OdAccount account) async {
+    final index = _odAccounts.indexWhere((item) => item.id == account.id);
+    if (index != -1) {
+      _odAccounts[index] = account;
+      await _saveData('od_accounts', _odAccounts);
+    }
+  }
+
+  Future<void> deleteOdAccount(int id) async {
+    _odAccounts.removeWhere((item) => item.id == id);
+    _odTransactions.removeWhere((tx) => tx.odAccountId == id);
+    await _saveData('od_transactions', _odTransactions);
+    await _saveData('od_accounts', _odAccounts);
+  }
+
   Future<void> addOdTransaction(OdTransaction tx) async {
     final newTx = OdTransaction(
       id: tx.id ?? _generateId(),
@@ -596,6 +674,19 @@ class FinanceProvider with ChangeNotifier {
       date: tx.date,
     );
     _odTransactions.add(newTx);
+    await _saveData('od_transactions', _odTransactions);
+  }
+
+  Future<void> updateOdTransaction(OdTransaction tx) async {
+    final index = _odTransactions.indexWhere((item) => item.id == tx.id);
+    if (index != -1) {
+      _odTransactions[index] = tx;
+      await _saveData('od_transactions', _odTransactions);
+    }
+  }
+
+  Future<void> deleteOdTransaction(int id) async {
+    _odTransactions.removeWhere((item) => item.id == id);
     await _saveData('od_transactions', _odTransactions);
   }
 

@@ -304,6 +304,98 @@ class DbSyncService {
         await odtxStmt.run([item.id.toString(), userId, item.odAccountId.toString(), item.amount, item.type, item.date]);
       }
 
+      // Propagate Deletions from local to remote for all tables
+      
+      // Categories
+      final catIds = provider.categories.map((c) => c.id.toString()).toList();
+      if (catIds.isNotEmpty) {
+        final placeholders = List.generate(catIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM categories WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...catIds]);
+      } else {
+        await conn.execute('DELETE FROM categories WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Transactions
+      final txIds = provider.transactions.map((t) => t.id.toString()).toList();
+      if (txIds.isNotEmpty) {
+        final placeholders = List.generate(txIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM transactions WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...txIds]);
+      } else {
+        await conn.execute('DELETE FROM transactions WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Loans
+      final loanIds = provider.loans.map((l) => l.id.toString()).toList();
+      if (loanIds.isNotEmpty) {
+        final placeholders = List.generate(loanIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM loans WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...loanIds]);
+      } else {
+        await conn.execute('DELETE FROM loans WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Income Configs
+      final incIds = provider.incomeConfigs.map((i) => i.id.toString()).toList();
+      if (incIds.isNotEmpty) {
+        final placeholders = List.generate(incIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM income_configs WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...incIds]);
+      } else {
+        await conn.execute('DELETE FROM income_configs WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Lend Borrows
+      final lbIds = provider.lendBorrows.map((lb) => lb.id.toString()).toList();
+      if (lbIds.isNotEmpty) {
+        final placeholders = List.generate(lbIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM lend_borrows WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...lbIds]);
+      } else {
+        await conn.execute('DELETE FROM lend_borrows WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Repayments
+      final repIds = provider.repayments.map((r) => r.id.toString()).toList();
+      if (repIds.isNotEmpty) {
+        final placeholders = List.generate(repIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM repayments WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...repIds]);
+      } else {
+        await conn.execute('DELETE FROM repayments WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Investments
+      final invIds = provider.investments.map((i) => i.id.toString()).toList();
+      if (invIds.isNotEmpty) {
+        final placeholders = List.generate(invIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM investments WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...invIds]);
+      } else {
+        await conn.execute('DELETE FROM investments WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // Category Budgets
+      final cbIds = provider.categoryBudgets.map((cb) => cb.id.toString()).toList();
+      if (cbIds.isNotEmpty) {
+        final placeholders = List.generate(cbIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM category_budgets WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...cbIds]);
+      } else {
+        await conn.execute('DELETE FROM category_budgets WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // OD Accounts
+      final odIds = provider.odAccounts.map((od) => od.id.toString()).toList();
+      if (odIds.isNotEmpty) {
+        final placeholders = List.generate(odIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM od_accounts WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...odIds]);
+      } else {
+        await conn.execute('DELETE FROM od_accounts WHERE user_id = \$1', parameters: [userId]);
+      }
+
+      // OD Transactions
+      final odTxIds = provider.odTransactions.map((tx) => tx.id.toString()).toList();
+      if (odTxIds.isNotEmpty) {
+        final placeholders = List.generate(odTxIds.length, (index) => '\$${index + 2}').join(', ');
+        await conn.execute('DELETE FROM od_transactions WHERE user_id = \$1 AND id NOT IN ($placeholders)', parameters: [userId, ...odTxIds]);
+      } else {
+        await conn.execute('DELETE FROM od_transactions WHERE user_id = \$1', parameters: [userId]);
+      }
+
     } finally {
       await conn.close();
     }

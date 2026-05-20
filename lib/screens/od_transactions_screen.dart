@@ -8,12 +8,15 @@ class OdTransactionsScreen extends StatelessWidget {
   final OdAccount account;
   const OdTransactionsScreen({super.key, required this.account});
 
-  void _showAddTxModal(BuildContext context) {
+  void _showAddTxModal(BuildContext context, {OdTransaction? transaction}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => AddOdTransactionSheet(accountId: account.id!),
+      builder: (ctx) => AddOdTransactionSheet(
+        accountId: account.id!,
+        transaction: transaction,
+      ),
     );
   }
 
@@ -61,64 +64,67 @@ class OdTransactionsScreen extends StatelessWidget {
                   
                   final dailyInterest = (balanceAfter * account.interestRate) / (365 * 100);
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white10),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                CircleAvatar(
-                                  backgroundColor: isDebit ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1),
-                                  child: Icon(
-                                    isDebit ? Icons.arrow_outward : Icons.arrow_downward,
-                                    color: isDebit ? Colors.redAccent : Colors.greenAccent,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(isDebit ? 'Withdrawal (Debit)' : 'Deposit (Credit)', 
-                                         style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                                    Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(tx.date)), 
-                                         style: const TextStyle(fontSize: 12, color: Colors.white54)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            Text(
-                              '${isDebit ? '-' : '+'}₹${tx.amount.toStringAsFixed(0)}',
-                              style: TextStyle(
-                                fontSize: 18, 
-                                fontWeight: FontWeight.bold, 
-                                color: isDebit ? Colors.redAccent : Colors.greenAccent
-                              ),
-                            ),
-                          ],
-                        ),
-                        if (balanceAfter > 0) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8),
-                            child: Divider(color: Colors.white10, height: 1),
-                          ),
+                  return InkWell(
+                    onTap: () => _showAddTxModal(context, transaction: tx),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: Column(
+                        children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Resulting Balance: ₹${balanceAfter.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.white38)),
-                              Text('Daily Interest: ₹${dailyInterest.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                              Row(
+                                children: [
+                                  CircleAvatar(
+                                    backgroundColor: isDebit ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1),
+                                    child: Icon(
+                                      isDebit ? Icons.arrow_outward : Icons.arrow_downward,
+                                      color: isDebit ? Colors.redAccent : Colors.greenAccent,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(isDebit ? 'Withdrawal (Debit)' : 'Deposit (Credit)', 
+                                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                                      Text(DateFormat('MMM dd, yyyy').format(DateTime.parse(tx.date)), 
+                                           style: const TextStyle(fontSize: 12, color: Colors.white54)),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${isDebit ? '-' : '+'}₹${tx.amount.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  fontSize: 18, 
+                                  fontWeight: FontWeight.bold, 
+                                  color: isDebit ? Colors.redAccent : Colors.greenAccent
+                                ),
+                              ),
                             ],
                           ),
+                          if (balanceAfter > 0) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Divider(color: Colors.white10, height: 1),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text('Resulting Balance: ₹${balanceAfter.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11, color: Colors.white38)),
+                                Text('Daily Interest: ₹${dailyInterest.toStringAsFixed(2)}', style: const TextStyle(fontSize: 11, color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+                              ],
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   );
                 },
@@ -135,7 +141,8 @@ class OdTransactionsScreen extends StatelessWidget {
 
 class AddOdTransactionSheet extends StatefulWidget {
   final int accountId;
-  const AddOdTransactionSheet({super.key, required this.accountId});
+  final OdTransaction? transaction;
+  const AddOdTransactionSheet({super.key, required this.accountId, this.transaction});
 
   @override
   State<AddOdTransactionSheet> createState() => _AddOdTransactionSheetState();
@@ -147,21 +154,42 @@ class _AddOdTransactionSheetState extends State<AddOdTransactionSheet> {
   String _type = 'Debit';
   DateTime _selectedDate = DateTime.now();
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.transaction != null) {
+      _amountController.text = widget.transaction!.amount.toStringAsFixed(0);
+      _type = widget.transaction!.type;
+      _selectedDate = DateTime.parse(widget.transaction!.date);
+    }
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final provider = Provider.of<FinanceProvider>(context, listen: false);
-      provider.addOdTransaction(OdTransaction(
+      final isEdit = widget.transaction != null;
+      final updated = OdTransaction(
+        id: isEdit ? widget.transaction!.id : null,
         odAccountId: widget.accountId,
         amount: double.parse(_amountController.text),
         type: _type,
         date: _selectedDate.toIso8601String(),
-      ));
+      );
+
+      if (isEdit) {
+        provider.updateOdTransaction(updated);
+      } else {
+        provider.addOdTransaction(updated);
+      }
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.transaction != null;
+    final provider = Provider.of<FinanceProvider>(context);
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF16213E),
@@ -178,7 +206,7 @@ class _AddOdTransactionSheetState extends State<AddOdTransactionSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('New OD Transaction', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(isEdit ? 'Edit Transaction' : 'New OD Transaction', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
             const SizedBox(height: 24),
             
             // Toggle for Debit/Credit
@@ -250,18 +278,59 @@ class _AddOdTransactionSheetState extends State<AddOdTransactionSheet> {
             ),
             
             const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyanAccent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            Row(
+              children: [
+                if (isEdit) ...[
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Delete Transaction'),
+                            content: const Text('Are you sure you want to delete this transaction?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text('Cancel'),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  provider.deleteOdTransaction(widget.transaction!.id!);
+                                  Navigator.pop(ctx);
+                                  Navigator.pop(context);
+                                },
+                                child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Delete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    onPressed: _submit,
+                    child: Text(isEdit ? 'Update' : 'Add Transaction', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  ),
                 ),
-                onPressed: _submit,
-                child: const Text('Add Transaction', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
+              ],
             ),
           ],
         ),

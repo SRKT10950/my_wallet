@@ -8,12 +8,12 @@ import 'od_transactions_screen.dart';
 class OdAccountsScreen extends StatelessWidget {
   const OdAccountsScreen({super.key});
 
-  void _showAddAccountModal(BuildContext context) {
+  void _showAddAccountModal(BuildContext context, {OdAccount? account}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const AddOdAccountSheet(),
+      builder: (ctx) => AddOdAccountSheet(account: account),
     );
   }
 
@@ -82,11 +82,23 @@ class OdAccountsScreen extends StatelessWidget {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(acc.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.cyanAccent)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
-                                    child: Text('Billing Date: $formattedBilling', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                                  Flexible(child: Text(acc.name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.cyanAccent), overflow: TextOverflow.ellipsis)),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(Icons.edit, size: 20, color: Colors.cyanAccent),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _showAddAccountModal(context, account: acc),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.white10, borderRadius: BorderRadius.circular(12)),
+                                        child: Text('Billing Date: $formattedBilling', style: const TextStyle(fontSize: 12, color: Colors.white70)),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -165,7 +177,8 @@ class OdAccountsScreen extends StatelessWidget {
 }
 
 class AddOdAccountSheet extends StatefulWidget {
-  const AddOdAccountSheet({super.key});
+  final OdAccount? account;
+  const AddOdAccountSheet({super.key, this.account});
 
   @override
   State<AddOdAccountSheet> createState() => _AddOdAccountSheetState();
@@ -178,21 +191,43 @@ class _AddOdAccountSheetState extends State<AddOdAccountSheet> {
   final _rateController = TextEditingController();
   final _billingDayController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.account != null) {
+      _nameController.text = widget.account!.name;
+      _limitController.text = widget.account!.limit.toStringAsFixed(0);
+      _rateController.text = widget.account!.interestRate.toString();
+      _billingDayController.text = widget.account!.billingDay.toString();
+    }
+  }
+
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final provider = Provider.of<FinanceProvider>(context, listen: false);
-      provider.addOdAccount(OdAccount(
+      final isEdit = widget.account != null;
+      final updated = OdAccount(
+        id: isEdit ? widget.account!.id : null,
         name: _nameController.text,
         limit: double.parse(_limitController.text),
         interestRate: double.parse(_rateController.text),
         billingDay: int.parse(_billingDayController.text),
-      ));
+      );
+
+      if (isEdit) {
+        provider.updateOdAccount(updated);
+      } else {
+        provider.addOdAccount(updated);
+      }
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.account != null;
+    final provider = Provider.of<FinanceProvider>(context);
+
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF16213E),
@@ -210,7 +245,7 @@ class _AddOdAccountSheetState extends State<AddOdAccountSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Setup OD Account', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+              Text(isEdit ? 'Edit OD Account' : 'Setup OD Account', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
               const SizedBox(height: 24),
               _buildField(_nameController, 'Bank / Account Name', Icons.account_balance),
               const SizedBox(height: 16),
@@ -224,18 +259,59 @@ class _AddOdAccountSheetState extends State<AddOdAccountSheet> {
                 ],
               ),
               const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyanAccent,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              Row(
+                children: [
+                  if (isEdit) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete OD Account'),
+                              content: const Text('Are you sure you want to delete this OD Account and all its transactions?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    provider.deleteOdAccount(widget.account!.id!);
+                                    Navigator.pop(ctx);
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Delete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.cyanAccent,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: _submit,
+                      child: Text(isEdit ? 'Update' : 'Create Account', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ),
                   ),
-                  onPressed: _submit,
-                  child: const Text('Create Account', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
+                ],
               ),
             ],
           ),

@@ -8,12 +8,12 @@ import '../models/loan.dart';
 class LoansScreen extends StatelessWidget {
   const LoansScreen({super.key});
 
-  void _showAddLoanModal(BuildContext context) {
+  void _showLoanModal(BuildContext context, {Loan? loan}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const AddLoanSheet(),
+      builder: (ctx) => AddLoanSheet(loan: loan),
     );
   }
 
@@ -31,11 +31,15 @@ class LoansScreen extends StatelessWidget {
               itemCount: activeLoans.length,
               itemBuilder: (context, index) {
                 final loan = activeLoans[index];
-                return _buildLoanCard(context, loan);
+                return InkWell(
+                  onTap: () => _showLoanModal(context, loan: loan),
+                  borderRadius: BorderRadius.circular(20),
+                  child: _buildLoanCard(context, loan),
+                );
               },
             ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showAddLoanModal(context),
+        onPressed: () => _showLoanModal(context),
         icon: const Icon(Icons.add),
         label: const Text('New Loan'),
       ),
@@ -137,7 +141,8 @@ class LoansScreen extends StatelessWidget {
 }
 
 class AddLoanSheet extends StatefulWidget {
-  const AddLoanSheet({super.key});
+  final Loan? loan;
+  const AddLoanSheet({super.key, this.loan});
 
   @override
   State<AddLoanSheet> createState() => _AddLoanSheetState();
@@ -150,6 +155,18 @@ class _AddLoanSheetState extends State<AddLoanSheet> {
   final _loanTenureController = TextEditingController();
   final _loanEmiController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.loan != null) {
+      _loanLenderController.text = widget.loan!.lender;
+      _loanPrincipalController.text = widget.loan!.principal.toString();
+      _loanTenureController.text = widget.loan!.tenure.toString();
+      _loanEmiController.text = widget.loan!.emi.toString();
+      _selectedDate = DateTime.parse(widget.loan!.startDate);
+    }
+  }
 
   void _submit() {
     if (_formKey.currentState!.validate()) {
@@ -180,8 +197,10 @@ class _AddLoanSheetState extends State<AddLoanSheet> {
       }
 
       final endDate = DateTime(_selectedDate.year, _selectedDate.month + tenure, _selectedDate.day);
+      final isEdit = widget.loan != null;
 
-      provider.addLoan(Loan(
+      final newLoan = Loan(
+        id: widget.loan?.id,
         lender: _loanLenderController.text,
         startDate: _selectedDate.toIso8601String(),
         endDate: endDate.toIso8601String(),
@@ -190,18 +209,27 @@ class _AddLoanSheetState extends State<AddLoanSheet> {
         principal: principal,
         interest: interest,
         total: total,
-        paid: 0.0,
-        balance: total,
+        paid: isEdit ? widget.loan!.paid : 0.0,
+        balance: isEdit ? widget.loan!.balance : total,
         emi: emi,
-        tenurePending: tenure,
-        status: 'Active',
-      ));
+        tenurePending: isEdit ? widget.loan!.tenurePending : tenure,
+        status: isEdit ? widget.loan!.status : 'Active',
+      );
+
+      if (isEdit) {
+        provider.updateLoan(newLoan);
+      } else {
+        provider.addLoan(newLoan);
+      }
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isEdit = widget.loan != null;
+    final provider = Provider.of<FinanceProvider>(context);
+
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -215,55 +243,103 @@ class _AddLoanSheetState extends State<AddLoanSheet> {
       ),
       child: Form(
         key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Add New Loan', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            ListTile(
-              contentPadding: EdgeInsets.zero,
-              title: Text('Start Date: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedDate,
-                  firstDate: DateTime(2000),
-                  lastDate: DateTime(2101),
-                );
-                if (picked != null) setState(() => _selectedDate = picked);
-              },
-            ),
-            TextFormField(
-              controller: _loanLenderController,
-              decoration: const InputDecoration(labelText: 'Lender Name', border: OutlineInputBorder()),
-              validator: (v) => v!.isEmpty ? 'Required' : null,
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _loanPrincipalController,
-              decoration: const InputDecoration(labelText: 'Principal Amount', border: OutlineInputBorder()),
-              keyboardType: TextInputType.number,
-              validator: (v) => v!.isEmpty ? 'Required' : null,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(child: TextFormField(controller: _loanTenureController, decoration: const InputDecoration(labelText: 'Tenure (Months)', border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null)),
-                const SizedBox(width: 10),
-                Expanded(child: TextFormField(controller: _loanEmiController, decoration: const InputDecoration(labelText: 'EMI Amount', border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null)),
-              ],
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                onPressed: _submit,
-                child: const Text('Add Loan', style: TextStyle(fontSize: 16)),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(isEdit ? 'Edit Loan' : 'Add New Loan', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text('Start Date: ${DateFormat('yyyy-MM-dd').format(_selectedDate)}'),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2101),
+                  );
+                  if (picked != null) setState(() => _selectedDate = picked);
+                },
               ),
-            ),
-          ],
+              TextFormField(
+                controller: _loanLenderController,
+                decoration: const InputDecoration(labelText: 'Lender Name', border: OutlineInputBorder()),
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _loanPrincipalController,
+                decoration: const InputDecoration(labelText: 'Principal Amount', border: OutlineInputBorder()),
+                keyboardType: TextInputType.number,
+                validator: (v) => v!.isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(child: TextFormField(controller: _loanTenureController, decoration: const InputDecoration(labelText: 'Tenure (Months)', border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null)),
+                  const SizedBox(width: 10),
+                  Expanded(child: TextFormField(controller: _loanEmiController, decoration: const InputDecoration(labelText: 'EMI Amount', border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null)),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  if (isEdit) ...[
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          backgroundColor: Colors.redAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () {
+                          showDialog(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('Delete Loan'),
+                              content: const Text('Are you sure you want to delete this loan?'),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx),
+                                  child: const Text('Cancel'),
+                                ),
+                                TextButton(
+                                  onPressed: () {
+                                    provider.deleteLoan(widget.loan!.id!);
+                                    Navigator.pop(ctx);
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.delete),
+                        label: const Text('Delete', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: isEdit ? Colors.blueAccent : Colors.tealAccent,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: _submit,
+                      child: Text(isEdit ? 'Update Loan' : 'Add Loan', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
