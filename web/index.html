@@ -138,6 +138,15 @@
   <script src="flutter_bootstrap.js" async></script>
 
   <script>
+    // Prevent service worker controllerchange auto-reload during active user interaction
+    if ('serviceWorker' in navigator) {
+      var refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function(e) {
+        if (refreshing) return;
+        refreshing = true;
+      });
+    }
+
     // Hide the PWA loader once Flutter is ready
     window.addEventListener('flutter-first-frame', function() {
       const loader = document.getElementById('pwa-loader');

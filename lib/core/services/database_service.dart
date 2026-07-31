@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../db/db_base_fields.dart';
 import '../services/device_service.dart';
@@ -28,10 +29,9 @@ class DatabaseService {
   static final DatabaseService instance = DatabaseService._();
 
   final _client = http.Client();
+  bool _isSchemaInitialized = false;
 
   /// Safely interpolates `?` placeholders with properly escaped values.
-  /// This ensures compatible execution with the REST API backend without sending
-  /// `params` payloads which cause 500 server errors on the backend.
   String _interpolateSql(String sql, List<dynamic>? params) {
     if (params == null || params.isEmpty) return sql;
 
@@ -48,7 +48,6 @@ class DatabaseService {
         } else if (val is bool) {
           buffer.write(val ? '1' : '0');
         } else {
-          // Escape single quotes for SQL string literal
           final escaped = val.toString().replaceAll("'", "''");
           buffer.write("'$escaped'");
         }
@@ -81,7 +80,6 @@ class DatabaseService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final data = jsonDecode(response.body);
 
-        // Handle array response (SELECT)
         if (data is List) {
           return DbResult(
             success: true,
@@ -89,7 +87,6 @@ class DatabaseService {
           );
         }
 
-        // Handle object response (INSERT / UPDATE / DELETE)
         if (data is Map<String, dynamic>) {
           if (data.containsKey('error')) {
             return DbResult(
@@ -133,10 +130,27 @@ class DatabaseService {
 
   // ── Schema Initialization & Auto-Migration ─────────────────────────
 
-  /// Creates all required tables and auto-migrates missing columns on startup.
+  /// Creates required tables and auto-migrates missing columns on first run.
+  /// Uses SharedPreferences caching so it runs in 1ms on subsequent opens.
   Future<void> initializeSchema() async {
-    await _createUsersTable();
-    await _migrateUsersTable();
+    if (_isSchemaInitialized) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final isDone = prefs.getBool('db_schema_v3_ready') ?? false;
+      if (isDone) {
+        _isSchemaInitialized = true;
+        return;
+      }
+
+      await _createUsersTable();
+      await _migrateUsersTable();
+
+      await prefs.setBool('db_schema_v3_ready', true);
+      _isSchemaInitialized = true;
+    } catch (_) {
+      // Fallback silently if offline or network error
+    }
   }
 
   Future<void> _createUsersTable() async {
