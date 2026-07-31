@@ -191,23 +191,32 @@ class _ContactsViewState extends State<ContactsView> {
                         Row(
                           children: [
                             Expanded(
-                              child: RadioListTile<String>(
-                                title: const Text('WhatsApp', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
-                                value: NotificationMethod.whatsApp,
-                                groupValue: method,
-                                activeColor: AppTheme.primaryTeal,
-                                contentPadding: EdgeInsets.zero,
-                                onChanged: (v) => setDlgState(() => method = v!),
+                              child: ChoiceChip(
+                                label: const Center(child: Text('💬 WhatsApp')),
+                                selected: method == NotificationMethod.whatsApp,
+                                selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.25),
+                                labelStyle: TextStyle(
+                                  color: method == NotificationMethod.whatsApp
+                                      ? AppTheme.primaryTeal
+                                      : AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                onSelected: (_) => setDlgState(() => method = NotificationMethod.whatsApp),
                               ),
                             ),
+                            const SizedBox(width: 10),
                             Expanded(
-                              child: RadioListTile<String>(
-                                title: const Text('SMS', style: TextStyle(color: AppTheme.textPrimary, fontSize: 13)),
-                                value: NotificationMethod.sms,
-                                groupValue: method,
-                                activeColor: AppTheme.primaryTeal,
-                                contentPadding: EdgeInsets.zero,
-                                onChanged: (v) => setDlgState(() => method = v!),
+                              child: ChoiceChip(
+                                label: const Center(child: Text('📱 SMS')),
+                                selected: method == NotificationMethod.sms,
+                                selectedColor: AppTheme.primaryViolet.withValues(alpha: 0.25),
+                                labelStyle: TextStyle(
+                                  color: method == NotificationMethod.sms
+                                      ? AppTheme.primaryViolet
+                                      : AppTheme.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                onSelected: (_) => setDlgState(() => method = NotificationMethod.sms),
                               ),
                             ),
                           ],
