@@ -131,13 +131,12 @@ class DatabaseService {
   // ── Schema Initialization & Auto-Migration ─────────────────────────
 
   /// Creates required tables and auto-migrates missing columns on first run.
-  /// Uses SharedPreferences caching so it runs in 1ms on subsequent opens.
   Future<void> initializeSchema() async {
     if (_isSchemaInitialized) return;
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDone = prefs.getBool('db_schema_v3_ready') ?? false;
+      final isDone = prefs.getBool('db_schema_v4_contacts_ready') ?? false;
       if (isDone) {
         _isSchemaInitialized = true;
         return;
@@ -145,11 +144,12 @@ class DatabaseService {
 
       await _createUsersTable();
       await _migrateUsersTable();
+      await _createContactsTable();
 
-      await prefs.setBool('db_schema_v3_ready', true);
+      await prefs.setBool('db_schema_v4_contacts_ready', true);
       _isSchemaInitialized = true;
     } catch (_) {
-      // Fallback silently if offline or network error
+      // Fallback silently if offline
     }
   }
 
@@ -166,6 +166,21 @@ class DatabaseService {
         otp_expires_at TEXT,
         is_verified    INTEGER NOT NULL DEFAULT 0,
         last_login     TEXT
+      )
+    ''');
+  }
+
+  Future<void> _createContactsTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS contacts (
+        ${DbBaseFields.columnDefinitions},
+        owner_name           TEXT NOT NULL,
+        mobile_number        TEXT NOT NULL,
+        business_shop_name   TEXT,
+        place_city           TEXT,
+        is_active            INTEGER NOT NULL DEFAULT 1,
+        enable_notification  INTEGER NOT NULL DEFAULT 1,
+        notification_method  TEXT NOT NULL DEFAULT 'WhatsApp'
       )
     ''');
   }
