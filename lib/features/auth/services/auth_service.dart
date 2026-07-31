@@ -32,6 +32,15 @@ class AuthService {
 
   final _db = DatabaseService.instance;
 
+  // ── Mobile Normalization ───────────────────────────────────────────
+  String _normalizeMobile(String mobile) {
+    final cleaned = mobile.replaceAll(RegExp(r'\D'), '');
+    if (cleaned.length > 10 && cleaned.startsWith('91')) {
+      return cleaned.substring(cleaned.length - 10);
+    }
+    return cleaned;
+  }
+
   // ── Password Hashing ───────────────────────────────────────────────
   String _hashPassword(String password) {
     final bytes = utf8.encode(password);
@@ -47,18 +56,33 @@ class AuthService {
 
   // ── Login ──────────────────────────────────────────────────────────
   Future<AuthResult> login(String mobile, String password) async {
-    final cleanMobile = mobile.trim();
+    final cleanMobile = _normalizeMobile(mobile);
     final cleanPassword = password.trim();
     final hash = _hashPassword(cleanPassword);
+
+    if (cleanMobile.isEmpty || cleanPassword.isEmpty) {
+      return const AuthResult(
+        success: false,
+        error: 'Please enter a valid mobile number and password/PIN.',
+      );
+    }
 
     // Query matching mobile/mobile_number and password_hash/pin
     final result = await _db.query(
       '''SELECT * FROM users
-         WHERE (mobile = ? OR mobile_number = ?)
+         WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)
            AND (password_hash = ? OR pin = ? OR password_hash = ?)
            AND (is_deleted = 0 OR is_deleted IS NULL)
          LIMIT 1''',
-      [cleanMobile, cleanMobile, hash, cleanPassword, cleanPassword],
+      [
+        cleanMobile,
+        cleanMobile,
+        '%$cleanMobile',
+        '%$cleanMobile',
+        hash,
+        cleanPassword,
+        cleanPassword
+      ],
     );
 
     if (!result.success) {
@@ -68,7 +92,7 @@ class AuthService {
     if (result.isEmpty) {
       return const AuthResult(
         success: false,
-        error: 'Invalid mobile number or password.',
+        error: 'Invalid mobile number or password/PIN.',
       );
     }
 
@@ -83,8 +107,16 @@ class AuthService {
       await _db.query(
         '''UPDATE users
            SET otp_code = ?, otp_expires_at = ?, updated_at = ?
-           WHERE (mobile = ? OR mobile_number = ?)''',
-        [otp, expiresAt, DateTime.now().toUtc().toIso8601String(), cleanMobile, cleanMobile],
+           WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)''',
+        [
+          otp,
+          expiresAt,
+          DateTime.now().toUtc().toIso8601String(),
+          cleanMobile,
+          cleanMobile,
+          '%$cleanMobile',
+          '%$cleanMobile'
+        ],
       );
 
       return AuthResult(
@@ -108,8 +140,8 @@ class AuthService {
     };
     final set = DbBaseFields.buildSetClause(updateFields);
     await _db.query(
-      'UPDATE users SET ${set.clause} WHERE (mobile = ? OR mobile_number = ?)',
-      [...set.params, cleanMobile, cleanMobile],
+      'UPDATE users SET ${set.clause} WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)',
+      [...set.params, cleanMobile, cleanMobile, '%$cleanMobile', '%$cleanMobile'],
     );
 
     await _persistSession(user);
@@ -119,15 +151,23 @@ class AuthService {
   // ── Register ───────────────────────────────────────────────────────
   Future<AuthResult> register(
       String name, String mobile, String password) async {
-    final cleanMobile = mobile.trim();
+    final cleanMobile = _normalizeMobile(mobile);
+    final cleanPassword = password.trim();
+
+    if (cleanMobile.length < 10) {
+      return const AuthResult(
+        success: false,
+        error: 'Please enter a valid 10-digit mobile number.',
+      );
+    }
 
     // Check for existing user with same mobile number
     final existing = await _db.query(
       '''SELECT id, is_verified, pin FROM users
-         WHERE (mobile = ? OR mobile_number = ?)
+         WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)
            AND (is_deleted = 0 OR is_deleted IS NULL)
          LIMIT 1''',
-      [cleanMobile, cleanMobile],
+      [cleanMobile, cleanMobile, '%$cleanMobile', '%$cleanMobile'],
     );
 
     if (!existing.success) {
@@ -146,7 +186,7 @@ class AuthService {
       }
     }
 
-    final hash = _hashPassword(password.trim());
+    final hash = _hashPassword(cleanPassword);
     final otp = _generateOtp();
     final expiresAt =
         DateTime.now().toUtc().add(const Duration(minutes: 5)).toIso8601String();
@@ -155,16 +195,18 @@ class AuthService {
       await _db.query(
         '''UPDATE users
            SET name = ?, password_hash = ?, pin = ?, otp_code = ?, otp_expires_at = ?, updated_at = ?
-           WHERE (mobile = ? OR mobile_number = ?)''',
+           WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)''',
         [
           name.trim(),
           hash,
-          password.trim(),
+          cleanPassword,
           otp,
           expiresAt,
           DateTime.now().toUtc().toIso8601String(),
           cleanMobile,
-          cleanMobile
+          cleanMobile,
+          '%$cleanMobile',
+          '%$cleanMobile'
         ],
       );
     } else {
@@ -174,7 +216,7 @@ class AuthService {
         'mobile': cleanMobile,
         'mobile_number': cleanMobile,
         'password_hash': hash,
-        'pin': password.trim(),
+        'pin': cleanPassword,
         'otp_code': otp,
         'otp_expires_at': expiresAt,
         'is_verified': 0,
@@ -189,8 +231,8 @@ class AuthService {
     }
 
     final userResult = await _db.query(
-      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ?) LIMIT 1',
-      [cleanMobile, cleanMobile],
+      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?) LIMIT 1',
+      [cleanMobile, cleanMobile, '%$cleanMobile', '%$cleanMobile'],
     );
 
     if (userResult.isNotEmpty) {
@@ -220,12 +262,12 @@ class AuthService {
 
   // ── Verify OTP ─────────────────────────────────────────────────────
   Future<AuthResult> verifyOtp(String mobile, String inputOtp) async {
-    final cleanMobile = mobile.trim();
+    final cleanMobile = _normalizeMobile(mobile);
     final cleanOtp = inputOtp.trim();
 
     final result = await _db.query(
-      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ?) LIMIT 1',
-      [cleanMobile, cleanMobile],
+      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?) LIMIT 1',
+      [cleanMobile, cleanMobile, '%$cleanMobile', '%$cleanMobile'],
     );
 
     if (!result.success || result.isEmpty) {
@@ -270,8 +312,8 @@ class AuthService {
 
     final set = DbBaseFields.buildSetClause(updateFields);
     await _db.query(
-      'UPDATE users SET ${set.clause} WHERE (mobile = ? OR mobile_number = ?)',
-      [...set.params, cleanMobile, cleanMobile],
+      'UPDATE users SET ${set.clause} WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)',
+      [...set.params, cleanMobile, cleanMobile, '%$cleanMobile', '%$cleanMobile'],
     );
 
     final updatedUser = UserModel.fromMap({
@@ -285,10 +327,10 @@ class AuthService {
 
   // ── Resend OTP ─────────────────────────────────────────────────────
   Future<AuthResult> resendOtp(String mobile) async {
-    final cleanMobile = mobile.trim();
+    final cleanMobile = _normalizeMobile(mobile);
     final result = await _db.query(
-      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ?) LIMIT 1',
-      [cleanMobile, cleanMobile],
+      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?) LIMIT 1',
+      [cleanMobile, cleanMobile, '%$cleanMobile', '%$cleanMobile'],
     );
 
     if (!result.success || result.isEmpty) {
@@ -306,8 +348,16 @@ class AuthService {
     await _db.query(
       '''UPDATE users
          SET otp_code = ?, otp_expires_at = ?, updated_at = ?
-         WHERE (mobile = ? OR mobile_number = ?)''',
-      [newOtp, expiresAt, DateTime.now().toUtc().toIso8601String(), cleanMobile, cleanMobile],
+         WHERE (mobile = ? OR mobile_number = ? OR mobile LIKE ? OR mobile_number LIKE ?)''',
+      [
+        newOtp,
+        expiresAt,
+        DateTime.now().toUtc().toIso8601String(),
+        cleanMobile,
+        cleanMobile,
+        '%$cleanMobile',
+        '%$cleanMobile'
+      ],
     );
 
     return AuthResult(

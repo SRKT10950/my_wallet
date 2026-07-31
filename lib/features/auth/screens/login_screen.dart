@@ -74,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen>
     if (result.success) {
       Navigator.of(context).pushReplacementNamed(AppConstants.routeHome);
     } else if (result.requiresOtp) {
-      // Unverified account -> Navigate to OTP screen
       Navigator.of(context).pushNamed(
         AppConstants.routeOtp,
         arguments: OtpScreenArgs(
@@ -149,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mini logo
         Container(
           width: 56,
           height: 56,
@@ -207,7 +205,6 @@ class _LoginScreenState extends State<LoginScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Error message
             if (_errorMessage != null) ...[
               _buildErrorBanner(),
               const SizedBox(height: 16),
@@ -216,7 +213,7 @@ class _LoginScreenState extends State<LoginScreen>
             // Mobile Number Field
             AppTextField(
               label: 'Mobile Number',
-              hint: '10-digit mobile number',
+              hint: 'e.g. 7400700500',
               controller: _mobileCtrl,
               keyboardType: TextInputType.phone,
               prefixIcon: Icons.phone_outlined,
@@ -228,8 +225,8 @@ class _LoginScreenState extends State<LoginScreen>
                 if (v == null || v.trim().isEmpty) {
                   return 'Mobile number is required';
                 }
-                final mobileRegex = RegExp(r'^[0-9]{10}$');
-                if (!mobileRegex.hasMatch(v.trim())) {
+                final cleaned = v.replaceAll(RegExp(r'\D'), '');
+                if (cleaned.length < 10) {
                   return 'Enter a valid 10-digit mobile number';
                 }
                 return null;
@@ -238,10 +235,10 @@ class _LoginScreenState extends State<LoginScreen>
 
             const SizedBox(height: 16),
 
-            // Password Field
+            // Password / PIN Field
             AppTextField(
-              label: 'Password',
-              hint: '••••••••',
+              label: 'Password / PIN',
+              hint: 'Enter your password or PIN',
               controller: _passwordCtrl,
               obscureText: true,
               prefixIcon: Icons.lock_outline_rounded,
@@ -249,15 +246,14 @@ class _LoginScreenState extends State<LoginScreen>
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _handleLogin(),
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Password is required';
-                if (v.length < 6) return 'Password must be at least 6 characters';
+                if (v == null || v.isEmpty) return 'Password or PIN is required';
+                if (v.length < 4) return 'Password/PIN must be at least 4 characters';
                 return null;
               },
             ),
 
             const SizedBox(height: 10),
 
-            // Forgot password placeholder
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
@@ -270,14 +266,13 @@ class _LoginScreenState extends State<LoginScreen>
                   foregroundColor: AppTheme.primaryTeal,
                   padding: EdgeInsets.zero,
                 ),
-                child: const Text('Forgot password?',
+                child: const Text('Forgot password / PIN?',
                     style: TextStyle(fontSize: 13)),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // Login button
             GradientButton(
               label: 'Sign In',
               isLoading: _isLoading,
