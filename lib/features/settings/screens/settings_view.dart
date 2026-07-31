@@ -562,7 +562,7 @@ class _SettingsViewState extends State<SettingsView> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('PostgreSQL Cloud Sync', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
+                      Text('Cloud DB Sync', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w600)),
                       Text('Connected • Last synced just now', style: TextStyle(color: AppTheme.textHint, fontSize: 12)),
                     ],
                   ),

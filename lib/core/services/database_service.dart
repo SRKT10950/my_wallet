@@ -136,7 +136,7 @@ class DatabaseService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDone = prefs.getBool('db_schema_v5_categories_ready') ?? false;
+      final isDone = prefs.getBool('db_schema_v6_products_ready') ?? false;
       if (isDone) {
         _isSchemaInitialized = true;
         return;
@@ -146,8 +146,10 @@ class DatabaseService {
       await _migrateUsersTable();
       await _createContactsTable();
       await _createCategoriesTable();
+      await _createProductsTable();
+      await _createProductPriceHistoryTable();
 
-      await prefs.setBool('db_schema_v5_categories_ready', true);
+      await prefs.setBool('db_schema_v6_products_ready', true);
       _isSchemaInitialized = true;
     } catch (_) {
       // Fallback silently if offline
@@ -194,6 +196,58 @@ class DatabaseService {
         category_type  TEXT NOT NULL DEFAULT 'expense',
         icon_name      TEXT DEFAULT 'category',
         color_hex      TEXT DEFAULT '#6C3DE8'
+      )
+    ''');
+  }
+
+  Future<void> _createProductsTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS products (
+        ${DbBaseFields.columnDefinitions},
+        product_code          TEXT NOT NULL,
+        product_name_english  TEXT NOT NULL,
+        product_name_local    TEXT,
+        language_code         TEXT DEFAULT 'hi',
+        category_id           TEXT,
+        brand                 TEXT,
+        description           TEXT,
+        unit                  TEXT DEFAULT 'Piece',
+        old_price             NUMERIC(12,2) DEFAULT 0.00,
+        current_price         NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        market_price          NUMERIC(12,2) DEFAULT 0.00,
+        currency              TEXT DEFAULT '₹',
+        effective_date        TEXT,
+        expiry_date           TEXT,
+        price_difference      NUMERIC(12,2) DEFAULT 0.00,
+        price_trend           TEXT DEFAULT 'no_change',
+        barcode               TEXT,
+        barcode_type          TEXT DEFAULT 'Code128',
+        qr_code               TEXT,
+        sku                   TEXT,
+        hsn_code              TEXT,
+        gst_percentage        NUMERIC(5,2) DEFAULT 0.00,
+        manufacturer          TEXT,
+        country               TEXT DEFAULT 'India',
+        reference_link        TEXT,
+        application_name      TEXT DEFAULT 'My Wallet',
+        image_url             TEXT,
+        thumbnail_url         TEXT,
+        status_badge          TEXT DEFAULT 'Active',
+        is_active             INTEGER NOT NULL DEFAULT 1
+      )
+    ''');
+  }
+
+  Future<void> _createProductPriceHistoryTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS product_price_history (
+        ${DbBaseFields.columnDefinitions},
+        product_id      TEXT NOT NULL,
+        old_price       NUMERIC(12,2) DEFAULT 0.00,
+        new_price       NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        market_price    NUMERIC(12,2) DEFAULT 0.00,
+        effective_date  TEXT NOT NULL,
+        updated_by_user TEXT NOT NULL DEFAULT 'System'
       )
     ''');
   }
