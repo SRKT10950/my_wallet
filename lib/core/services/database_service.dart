@@ -136,7 +136,7 @@ class DatabaseService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDone = prefs.getBool('db_schema_v4_contacts_ready') ?? false;
+      final isDone = prefs.getBool('db_schema_v5_categories_ready') ?? false;
       if (isDone) {
         _isSchemaInitialized = true;
         return;
@@ -145,8 +145,9 @@ class DatabaseService {
       await _createUsersTable();
       await _migrateUsersTable();
       await _createContactsTable();
+      await _createCategoriesTable();
 
-      await prefs.setBool('db_schema_v4_contacts_ready', true);
+      await prefs.setBool('db_schema_v5_categories_ready', true);
       _isSchemaInitialized = true;
     } catch (_) {
       // Fallback silently if offline
@@ -181,6 +182,18 @@ class DatabaseService {
         is_active            INTEGER NOT NULL DEFAULT 1,
         enable_notification  INTEGER NOT NULL DEFAULT 1,
         notification_method  TEXT NOT NULL DEFAULT 'WhatsApp'
+      )
+    ''');
+  }
+
+  Future<void> _createCategoriesTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS categories (
+        ${DbBaseFields.columnDefinitions},
+        category_name  TEXT NOT NULL,
+        category_type  TEXT NOT NULL DEFAULT 'expense',
+        icon_name      TEXT DEFAULT 'category',
+        color_hex      TEXT DEFAULT '#6C3DE8'
       )
     ''');
   }
