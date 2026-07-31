@@ -9,6 +9,7 @@ class ProductModel extends BaseModel {
   final String productNameLocal;
   final String languageCode;
   final String? categoryId;
+  final String categoryName;
   final String? brand;
   final String? description;
   final String unit; // 'Kg', 'Gram', 'Liter', 'ml', 'Piece', 'Pack', 'Box', 'Bottle', 'Dozen', 'Meter'
@@ -56,6 +57,7 @@ class ProductModel extends BaseModel {
     required this.productNameLocal,
     this.languageCode = 'hi',
     this.categoryId,
+    this.categoryName = 'General',
     this.brand,
     this.description,
     this.unit = 'Piece',
@@ -142,6 +144,7 @@ class ProductModel extends BaseModel {
       productNameLocal: map['product_name_local']?.toString() ?? '',
       languageCode: map['language_code']?.toString() ?? 'hi',
       categoryId: map['category_id']?.toString(),
+      categoryName: map['category_name']?.toString() ?? 'General',
       brand: map['brand']?.toString(),
       description: map['description']?.toString(),
       unit: map['unit']?.toString() ?? 'Piece',
@@ -180,6 +183,7 @@ class ProductModel extends BaseModel {
         'product_name_local': productNameLocal,
         'language_code': languageCode,
         'category_id': categoryId,
+        'category_name': categoryName,
         'brand': brand,
         'description': description,
         'unit': unit,

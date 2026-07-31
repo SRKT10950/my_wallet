@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import '../../../core/models/base_model.dart';
 import '../../../core/theme/app_theme.dart';
 
+import '../../settings/models/category_model.dart';
+import '../../settings/services/category_service.dart';
 import '../models/price_history_model.dart';
 import '../models/product_model.dart';
 import '../services/product_service.dart';
 
-/// Enterprise Product Catalog View — Multilingual, Barcode/QR Engine, Price Trends & History.
+/// Enterprise Product Catalog View — Dynamic Category Selector, Inline Category Creator, Multilingual & Barcode/QR.
 class CatalogView extends StatefulWidget {
   const CatalogView({super.key});
 
@@ -15,19 +18,22 @@ class CatalogView extends StatefulWidget {
 
 class _CatalogViewState extends State<CatalogView> {
   final _productService = ProductService.instance;
+  final _categoryService = CategoryService.instance;
   final _searchCtrl = TextEditingController();
 
   List<ProductModel> _allProducts = [];
   List<ProductModel> _filteredProducts = [];
+  List<CategoryModel> _categories = [];
   bool _isLoading = true;
 
+  String _selectedCategoryFilter = 'All';
   String _selectedStatusFilter = 'All';
   final String _activeLangCode = 'hi'; // Default active local language: Hindi
 
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _loadInitialData();
     _searchCtrl.addListener(_onSearchChanged);
   }
 
@@ -37,13 +43,15 @@ class _CatalogViewState extends State<CatalogView> {
     super.dispose();
   }
 
-  Future<void> _loadProducts() async {
+  Future<void> _loadInitialData() async {
     setState(() => _isLoading = true);
-    final list = await _productService.fetchProducts();
+    final products = await _productService.fetchProducts();
+    final cats = await _categoryService.fetchCategories();
     if (!mounted) return;
     setState(() {
-      _allProducts = list;
-      _filteredProducts = list;
+      _allProducts = products;
+      _filteredProducts = products;
+      _categories = cats;
       _isLoading = false;
     });
   }
@@ -58,14 +66,107 @@ class _CatalogViewState extends State<CatalogView> {
             (p.barcode ?? '').toLowerCase().contains(q) ||
             (p.brand ?? '').toLowerCase().contains(q) ||
             (p.sku ?? '').toLowerCase().contains(q) ||
-            (p.description ?? '').toLowerCase().contains(q);
+            (p.description ?? '').toLowerCase().contains(q) ||
+            p.categoryName.toLowerCase().contains(q);
+
+        final matchesCategory = _selectedCategoryFilter == 'All' ||
+            p.categoryName.toLowerCase() == _selectedCategoryFilter.toLowerCase();
 
         final matchesStatus = _selectedStatusFilter == 'All' ||
             p.statusBadge.toLowerCase() == _selectedStatusFilter.toLowerCase();
 
-        return matchesSearch && matchesStatus;
+        return matchesSearch && matchesCategory && matchesStatus;
       }).toList();
     });
+  }
+
+  // ── Inline Add Category Dialog ─────────────────────────────────────
+  void _showInlineAddCategoryDialog(Function(CategoryModel) onCreated) {
+    final formKey = GlobalKey<FormState>();
+    final nameCtrl = TextEditingController();
+    String catType = 'expense';
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (context, setDlgState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: const Text('Create New Category', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700)),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextFormField(
+                      controller: nameCtrl,
+                      style: const TextStyle(color: AppTheme.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Category Name *',
+                        hintText: 'e.g. Groceries',
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Category name is required' : null,
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Center(child: Text('Expense')),
+                            selected: catType == 'expense',
+                            selectedColor: AppTheme.error.withValues(alpha: 0.3),
+                            onSelected: (_) => setDlgState(() => catType = 'expense'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ChoiceChip(
+                            label: const Center(child: Text('Income')),
+                            selected: catType == 'income',
+                            selectedColor: AppTheme.success.withValues(alpha: 0.3),
+                            onSelected: (_) => setDlgState(() => catType = 'income'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dlgCtx),
+                  child: const Text('Cancel', style: TextStyle(color: AppTheme.textHint)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    final newCat = CategoryModel(
+                      id: BaseModel.newId(),
+                      createdAt: DateTime.now().toUtc().toIso8601String(),
+                      updatedAt: DateTime.now().toUtc().toIso8601String(),
+                      categoryName: nameCtrl.text.trim(),
+                      categoryType: catType,
+                      iconName: catType == 'income' ? 'account_balance' : 'receipt',
+                      colorHex: catType == 'income' ? '#4CAF50' : '#6C3DE8',
+                    );
+
+                    Navigator.pop(dlgCtx);
+                    await _categoryService.addCategory(newCat);
+                    final updatedCats = await _categoryService.fetchCategories();
+                    if (!mounted) return;
+                    setState(() => _categories = updatedCats);
+                    onCreated(newCat);
+                  },
+                  child: const Text('Save Category'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   // ── 1. Add / Edit Product Responsive Dialog (Tabbed) ────────────────
@@ -94,6 +195,10 @@ class _CatalogViewState extends State<CatalogView> {
     String selectedStatus = existingProduct?.statusBadge ?? 'Active';
     String barcodeType = existingProduct?.barcodeType ?? 'EAN-13';
 
+    // Category selection
+    String? selectedCategoryId = existingProduct?.categoryId ?? (_categories.isNotEmpty ? _categories.first.id : null);
+    String selectedCategoryName = existingProduct?.categoryName ?? (_categories.isNotEmpty ? _categories.first.categoryName : 'General');
+
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -108,7 +213,7 @@ class _CatalogViewState extends State<CatalogView> {
               ),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * 0.85,
-                height: 520,
+                height: 540,
                 child: DefaultTabController(
                   length: 5,
                   child: Column(
@@ -132,7 +237,7 @@ class _CatalogViewState extends State<CatalogView> {
                           key: formKey,
                           child: TabBarView(
                             children: [
-                              // Tab 1: Basic Details
+                              // Tab 1: Basic Details (Includes Dynamic Category Dropdown & Inline Creator)
                               SingleChildScrollView(
                                 child: Column(
                                   children: [
@@ -144,7 +249,6 @@ class _CatalogViewState extends State<CatalogView> {
                                         hintText: 'e.g. Basmati Rice',
                                       ),
                                       onChanged: (v) {
-                                        // Auto-translate name when English name changes
                                         final translated = _productService.autoTranslate(v, _activeLangCode);
                                         nameLocCtrl.text = translated;
                                       },
@@ -158,6 +262,49 @@ class _CatalogViewState extends State<CatalogView> {
                                         labelText: 'Local Name (Auto-translated / Editable)',
                                         hintText: 'e.g. बासमती चावल',
                                       ),
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // Category Dropdown with + New Category Button
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: DropdownButtonFormField<String>(
+                                            initialValue: selectedCategoryName,
+                                            dropdownColor: AppTheme.card,
+                                            style: const TextStyle(color: AppTheme.textPrimary),
+                                            decoration: const InputDecoration(
+                                              labelText: 'Category *',
+                                              prefixIcon: Icon(Icons.category_rounded, color: AppTheme.primaryTeal, size: 20),
+                                            ),
+                                            items: _categories
+                                                .map((c) => DropdownMenuItem(value: c.categoryName, child: Text(c.categoryName)))
+                                                .toList(),
+                                            onChanged: (val) {
+                                              if (val != null) {
+                                                final matched = _categories.firstWhere((c) => c.categoryName == val, orElse: () => _categories.first);
+                                                setDlgState(() {
+                                                  selectedCategoryName = val;
+                                                  selectedCategoryId = matched.id;
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton.filledTonal(
+                                          icon: const Icon(Icons.add, color: AppTheme.primaryTeal),
+                                          tooltip: 'Add New Category',
+                                          onPressed: () {
+                                            _showInlineAddCategoryDialog((createdCat) {
+                                              setDlgState(() {
+                                                selectedCategoryName = createdCat.categoryName;
+                                                selectedCategoryId = createdCat.id;
+                                              });
+                                            });
+                                          },
+                                        ),
+                                      ],
                                     ),
                                     const SizedBox(height: 12),
                                     Row(
@@ -421,6 +568,8 @@ class _CatalogViewState extends State<CatalogView> {
                       productNameEnglish: nameEngCtrl.text.trim(),
                       productNameLocal: nameLocCtrl.text.trim().isNotEmpty ? nameLocCtrl.text.trim() : nameEngCtrl.text.trim(),
                       languageCode: _activeLangCode,
+                      categoryId: selectedCategoryId,
+                      categoryName: selectedCategoryName,
                       brand: brandCtrl.text.trim().isNotEmpty ? brandCtrl.text.trim() : null,
                       description: descCtrl.text.trim().isNotEmpty ? descCtrl.text.trim() : null,
                       unit: selectedUnit,
@@ -441,7 +590,7 @@ class _CatalogViewState extends State<CatalogView> {
 
                     Navigator.pop(dialogCtx);
                     await _productService.saveProduct(p);
-                    _loadProducts();
+                    _loadInitialData();
                   },
                   child: Text(existingProduct == null ? 'Save Product' : 'Update Product'),
                 ),
@@ -503,6 +652,9 @@ class _CatalogViewState extends State<CatalogView> {
 
   @override
   Widget build(BuildContext context) {
+    // Collect all available category filters
+    final catFilterOptions = ['All', ..._categories.map((c) => c.categoryName)];
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       floatingActionButton: FloatingActionButton.extended(
@@ -512,17 +664,18 @@ class _CatalogViewState extends State<CatalogView> {
         label: const Text('Add Product', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
       ),
       body: RefreshIndicator(
-        onRefresh: _loadProducts,
+        onRefresh: _loadInitialData,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Sticky Top Header (Search, Filters, Barcode Scanner Action)
+              // Sticky Top Header (Search, Category Filters, Barcode Scanner Action)
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(color: AppTheme.surface, borderRadius: BorderRadius.circular(20)),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
@@ -531,7 +684,7 @@ class _CatalogViewState extends State<CatalogView> {
                             controller: _searchCtrl,
                             style: const TextStyle(color: AppTheme.textPrimary),
                             decoration: InputDecoration(
-                              hintText: 'Instant Search by Name, Local Name, Barcode, SKU, Brand...',
+                              hintText: 'Instant Search by Name, Local Name, Barcode, Category...',
                               prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.textHint),
                               fillColor: AppTheme.card,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
@@ -550,7 +703,35 @@ class _CatalogViewState extends State<CatalogView> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
+
+                    // Category Filter Chips
+                    const Text('Filter by Category:', style: TextStyle(color: AppTheme.textHint, fontSize: 12, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 6),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: catFilterOptions.map((catName) {
+                          final sel = _selectedCategoryFilter == catName;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(catName),
+                              selected: sel,
+                              selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.25),
+                              labelStyle: TextStyle(color: sel ? AppTheme.primaryTeal : AppTheme.textSecondary, fontSize: 12, fontWeight: FontWeight.w600),
+                              onSelected: (_) {
+                                setState(() => _selectedCategoryFilter = catName);
+                                _onSearchChanged();
+                              },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Status Filters & Count
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -562,8 +743,8 @@ class _CatalogViewState extends State<CatalogView> {
                               child: ChoiceChip(
                                 label: Text(st),
                                 selected: sel,
-                                selectedColor: AppTheme.primaryTeal.withValues(alpha: 0.25),
-                                labelStyle: TextStyle(color: sel ? AppTheme.primaryTeal : AppTheme.textSecondary, fontSize: 12),
+                                selectedColor: AppTheme.primaryViolet.withValues(alpha: 0.25),
+                                labelStyle: TextStyle(color: sel ? AppTheme.primaryViolet : AppTheme.textSecondary, fontSize: 11),
                                 onSelected: (_) {
                                   setState(() => _selectedStatusFilter = st);
                                   _onSearchChanged();
@@ -572,7 +753,7 @@ class _CatalogViewState extends State<CatalogView> {
                             );
                           }).toList(),
                         ),
-                        Text('${_filteredProducts.length} Items', style: const TextStyle(color: AppTheme.textHint, fontSize: 13)),
+                        Text('${_filteredProducts.length} Items', style: const TextStyle(color: AppTheme.textHint, fontSize: 13, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ],
@@ -629,7 +810,7 @@ class _CatalogViewState extends State<CatalogView> {
                             ),
                             const SizedBox(width: 14),
 
-                            // Name & Local Translation Badge
+                            // Name, Category Pill & Local Translation Badge
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -652,9 +833,27 @@ class _CatalogViewState extends State<CatalogView> {
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                                  Text(
-                                    '${p.brand ?? 'Generic'} • ${p.unit} • Effective ${p.effectiveDate}',
-                                    style: const TextStyle(color: AppTheme.textHint, fontSize: 12),
+
+                                  // Category Badge
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          '📂 ${p.categoryName}',
+                                          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 11, fontWeight: FontWeight.w600),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${p.brand ?? 'Generic'} • ${p.unit}',
+                                        style: const TextStyle(color: AppTheme.textHint, fontSize: 12),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -742,7 +941,7 @@ class _CatalogViewState extends State<CatalogView> {
                                   icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.error, size: 20),
                                   onPressed: () async {
                                     await _productService.deleteProduct(p.id);
-                                    _loadProducts();
+                                    _loadInitialData();
                                   },
                                 ),
                               ],

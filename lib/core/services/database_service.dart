@@ -136,7 +136,7 @@ class DatabaseService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDone = prefs.getBool('db_schema_v6_products_ready') ?? false;
+      final isDone = prefs.getBool('db_schema_v7_product_category_ready') ?? false;
       if (isDone) {
         _isSchemaInitialized = true;
         return;
@@ -148,8 +148,9 @@ class DatabaseService {
       await _createCategoriesTable();
       await _createProductsTable();
       await _createProductPriceHistoryTable();
+      await _migrateProductsTable();
 
-      await prefs.setBool('db_schema_v6_products_ready', true);
+      await prefs.setBool('db_schema_v7_product_category_ready', true);
       _isSchemaInitialized = true;
     } catch (_) {
       // Fallback silently if offline
@@ -209,6 +210,7 @@ class DatabaseService {
         product_name_local    TEXT,
         language_code         TEXT DEFAULT 'hi',
         category_id           TEXT,
+        category_name         TEXT DEFAULT 'General',
         brand                 TEXT,
         description           TEXT,
         unit                  TEXT DEFAULT 'Piece',
@@ -236,6 +238,10 @@ class DatabaseService {
         is_active             INTEGER NOT NULL DEFAULT 1
       )
     ''');
+  }
+
+  Future<void> _migrateProductsTable() async {
+    await query('ALTER TABLE products ADD COLUMN IF NOT EXISTS category_name VARCHAR(100) DEFAULT \'General\'');
   }
 
   Future<void> _createProductPriceHistoryTable() async {
