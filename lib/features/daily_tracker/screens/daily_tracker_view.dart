@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/models/base_model.dart';
 import '../../../core/theme/app_theme.dart';
 
 import '../../catalog/models/product_model.dart';
 import '../../catalog/services/product_service.dart';
+import '../../contacts/models/contact_model.dart';
+import '../../contacts/services/contact_service.dart';
 import '../models/daily_payment_history_model.dart';
 import '../models/daily_purchase_item_model.dart';
 import '../models/daily_purchase_model.dart';
 import '../services/daily_tracker_service.dart';
 
-/// Enterprise Daily Tracker View — 17 Dashboard Metrics, Itemized Multi-Product Bills, Split Payments & PostgreSQL.
+/// Enterprise Daily Tracker View — 17 Dashboard Metrics, Itemized Bills, Contact Picklist & Auto Invoice Dispatcher.
 class DailyTrackerView extends StatefulWidget {
   const DailyTrackerView({super.key});
 
@@ -20,11 +23,13 @@ class DailyTrackerView extends StatefulWidget {
 class _DailyTrackerViewState extends State<DailyTrackerView> {
   final _trackerService = DailyTrackerService.instance;
   final _productService = ProductService.instance;
+  final _contactService = ContactService.instance;
   final _searchCtrl = TextEditingController();
 
   List<DailyPurchaseModel> _allPurchases = [];
   List<DailyPurchaseModel> _filteredPurchases = [];
   List<ProductModel> _catalogProducts = [];
+  List<ContactModel> _contacts = [];
   bool _isLoading = true;
 
   String _statusFilter = 'All';
@@ -46,11 +51,13 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
     setState(() => _isLoading = true);
     final purchases = await _trackerService.fetchPurchases();
     final prods = await _productService.fetchProducts();
+    final contacts = await _contactService.fetchContacts();
     if (!mounted) return;
     setState(() {
       _allPurchases = purchases;
       _filteredPurchases = purchases;
       _catalogProducts = prods;
+      _contacts = contacts;
       _isLoading = false;
     });
   }
@@ -73,13 +80,235 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
     });
   }
 
+  // ── Auto Invoice & Notification Dispatcher ─────────────────────────
+  Future<void> _autoDispatchInvoice(DailyPurchaseModel purchase, ContactModel? contact) async {
+    if (contact == null || !contact.enableNotification || contact.mobileNumber.trim().isEmpty) {
+      return;
+    }
+
+    final cleanMobile = contact.mobileNumber.replaceAll(RegExp(r'\D'), '');
+    final fullPhone = cleanMobile.length == 10 ? '91$cleanMobile' : cleanMobile;
+
+    final itemSummary = purchase.items.isEmpty
+        ? 'General Purchase'
+        : purchase.items.map((i) => '${i.productName} (${i.quantity} ${i.unit})').join(', ');
+
+    final msg = '''
+🧾 *INVOICE RECEIPT — My Wallet*
+----------------------------------
+*Bill No:* ${purchase.billNumber}
+*Merchant:* ${purchase.shopName}
+*Date:* ${purchase.billingDate}
+*Items:* $itemSummary
+*Grand Total:* ₹${purchase.grandTotal.toStringAsFixed(2)}
+*Amount Paid:* ₹${purchase.amountPaid.toStringAsFixed(2)}
+*Remaining Due:* ₹${purchase.dueAmount.toStringAsFixed(2)}
+*Payment Status:* ${purchase.paymentStatus.toUpperCase()}
+----------------------------------
+Thank you for your transaction!
+''';
+
+    final encodedMsg = Uri.encodeComponent(msg);
+    final isWhatsApp = contact.notificationMethod.toLowerCase() == 'whatsapp';
+
+    final urlStr = isWhatsApp
+        ? 'https://wa.me/$fullPhone?text=$encodedMsg'
+        : 'sms:+$fullPhone?body=$encodedMsg';
+
+    try {
+      final uri = Uri.parse(urlStr);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {}
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚡ Auto-sent invoice via ${contact.notificationMethod} to +$fullPhone'),
+          backgroundColor: AppTheme.primaryTeal,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // ── Monthly Invoice Statement Generator Modal ─────────────────────
+  void _showMonthlyInvoiceModal() {
+    ContactModel? selectedContact = _contacts.isNotEmpty ? _contacts.first : null;
+    int selectedMonth = DateTime.now().month;
+    int selectedYear = DateTime.now().year;
+
+    final months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    showDialog(
+      context: context,
+      builder: (dlgCtx) {
+        return StatefulBuilder(
+          builder: (context, setMonthlyState) {
+            final monthPurchases = _allPurchases.where((p) {
+              final d = DateTime.tryParse(p.billingDate);
+              if (d == null) return false;
+              final matchesMonth = d.month == selectedMonth && d.year == selectedYear;
+              final matchesContact = selectedContact == null ||
+                  p.shopName.toLowerCase().contains(selectedContact!.businessShopName.toLowerCase()) ||
+                  p.shopName.toLowerCase().contains(selectedContact!.ownerName.toLowerCase());
+              return matchesMonth && matchesContact;
+            }).toList();
+
+            double monthTotal = 0.0;
+            double monthPaid = 0.0;
+            double monthDue = 0.0;
+
+            for (final p in monthPurchases) {
+              monthTotal += p.grandTotal;
+              monthPaid += p.amountPaid;
+              monthDue += p.dueAmount;
+            }
+
+            return AlertDialog(
+              backgroundColor: AppTheme.surface,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+              title: const Row(
+                children: [
+                  Icon(Icons.calendar_month_rounded, color: AppTheme.primaryTeal),
+                  SizedBox(width: 10),
+                  Text('Send Monthly Statement Invoice', style: TextStyle(color: AppTheme.textPrimary, fontWeight: FontWeight.w700, fontSize: 18)),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonFormField<ContactModel>(
+                      initialValue: selectedContact,
+                      dropdownColor: AppTheme.card,
+                      style: const TextStyle(color: AppTheme.textPrimary),
+                      decoration: const InputDecoration(labelText: 'Select Merchant / Contact'),
+                      items: _contacts.map((c) {
+                        return DropdownMenuItem(
+                          value: c,
+                          child: Text('${c.businessShopName} (${c.ownerName})'),
+                        );
+                      }).toList(),
+                      onChanged: (v) => setMonthlyState(() => selectedContact = v),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedMonth,
+                            dropdownColor: AppTheme.card,
+                            style: const TextStyle(color: AppTheme.textPrimary),
+                            decoration: const InputDecoration(labelText: 'Month'),
+                            items: List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text(months[i]))),
+                            onChanged: (v) => setMonthlyState(() => selectedMonth = v!),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButtonFormField<int>(
+                            initialValue: selectedYear,
+                            dropdownColor: AppTheme.card,
+                            style: const TextStyle(color: AppTheme.textPrimary),
+                            decoration: const InputDecoration(labelText: 'Year'),
+                            items: [2025, 2026, 2027].map((y) => DropdownMenuItem(value: y, child: Text(y.toString()))).toList(),
+                            onChanged: (v) => setMonthlyState(() => selectedYear = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(color: AppTheme.card, borderRadius: BorderRadius.circular(16)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Statement Summary — ${months[selectedMonth - 1]} $selectedYear', style: const TextStyle(color: AppTheme.primaryTeal, fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 8),
+                          _buildSummaryRow('Total Bills Count:', '${monthPurchases.length} Bills'),
+                          _buildSummaryRow('Total Billed Amount:', '₹${monthTotal.toStringAsFixed(2)}'),
+                          _buildSummaryRow('Total Paid Amount:', '₹${monthPaid.toStringAsFixed(2)}'),
+                          const Divider(color: Colors.white10),
+                          _buildSummaryRow('Outstanding Balance Due:', '₹${monthDue.toStringAsFixed(2)}', isBold: true),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dlgCtx),
+                  child: const Text('Cancel', style: TextStyle(color: AppTheme.textHint)),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    if (selectedContact == null) return;
+                    Navigator.pop(dlgCtx);
+
+                    final cleanMobile = selectedContact!.mobileNumber.replaceAll(RegExp(r'\D'), '');
+                    final fullPhone = cleanMobile.length == 10 ? '91$cleanMobile' : cleanMobile;
+
+                    final statementMsg = '''
+📅 *MONTHLY STATEMENT INVOICE — My Wallet*
+------------------------------------------
+*Merchant:* ${selectedContact!.businessShopName}
+*Owner:* ${selectedContact!.ownerName}
+*Period:* ${months[selectedMonth - 1]} $selectedYear
+------------------------------------------
+*Total Bills:* ${monthPurchases.length}
+*Total Billed:* ₹${monthTotal.toStringAsFixed(2)}
+*Total Paid:* ₹${monthPaid.toStringAsFixed(2)}
+*Outstanding Due:* ₹${monthDue.toStringAsFixed(2)}
+------------------------------------------
+Please clear outstanding balance if due. Thank you!
+''';
+
+                    final encoded = Uri.encodeComponent(statementMsg);
+                    final isWA = selectedContact!.notificationMethod.toLowerCase() == 'whatsapp';
+                    final urlStr = isWA ? 'https://wa.me/$fullPhone?text=$encoded' : 'sms:+$fullPhone?body=$encoded';
+
+                    try {
+                      final uri = Uri.parse(urlStr);
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    } catch (_) {}
+
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('⚡ Monthly Statement dispatched via ${selectedContact!.notificationMethod} to +$fullPhone'),
+                          backgroundColor: AppTheme.primaryTeal,
+                        ),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.send_rounded, size: 18),
+                  label: const Text('Dispatch Statement'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // ── 1. Tabbed Add / Edit Purchase Responsive Dialog ────────────────
   void _showAddEditPurchaseDialog([DailyPurchaseModel? existing]) {
     final formKey = GlobalKey<FormState>();
 
     final billNoCtrl = TextEditingController(text: existing?.billNumber ?? 'BILL-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}');
     final invoiceCtrl = TextEditingController(text: existing?.invoiceNumber ?? '');
-    final shopNameCtrl = TextEditingController(text: existing?.shopName ?? 'DMart Supermarket');
+    final shopNameCtrl = TextEditingController(text: existing?.shopName ?? '');
     final shopTypeCtrl = TextEditingController(text: existing?.shopType ?? 'Groceries');
     final billingDateCtrl = TextEditingController(text: existing?.billingDate ?? DateTime.now().toString().split(' ')[0]);
     final dueDateCtrl = TextEditingController(text: existing?.dueDate ?? '');
@@ -88,6 +317,22 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
     final packingCtrl = TextEditingController(text: existing?.packingCharge.toStringAsFixed(0) ?? '0');
     final discountCtrl = TextEditingController(text: existing?.discount.toStringAsFixed(0) ?? '0');
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
+
+    ContactModel? selectedContact = _contacts.firstWhere(
+      (c) => c.businessShopName.toLowerCase() == (existing?.shopName ?? '').toLowerCase() || c.ownerName.toLowerCase() == (existing?.shopName ?? '').toLowerCase(),
+      orElse: () => _contacts.isNotEmpty ? _contacts.first : ContactModel(
+        id: 'c_default',
+        createdAt: '',
+        updatedAt: '',
+        ownerName: 'General Store',
+        mobileNumber: '',
+        businessShopName: 'DMart Supermarket',
+      ),
+    );
+
+    if (existing == null && _contacts.isNotEmpty) {
+      shopNameCtrl.text = selectedContact.businessShopName;
+    }
 
     List<DailyPurchaseItemModel> draftItems = existing != null ? List.from(existing.items) : [];
     List<DailyPaymentHistoryModel> draftPayments = existing != null ? List.from(existing.paymentHistory) : [];
@@ -157,17 +402,85 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
                           key: formKey,
                           child: TabBarView(
                             children: [
-                              // Tab 1: Shop & Invoice Details
+                              // Tab 1: Shop & Invoice Details (With Contact Picklist)
                               SingleChildScrollView(
                                 child: Column(
                                   children: [
-                                    TextFormField(
-                                      controller: shopNameCtrl,
-                                      style: const TextStyle(color: AppTheme.textPrimary),
-                                      decoration: const InputDecoration(labelText: 'Shop / Merchant Name *', hintText: 'e.g. DMart'),
-                                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Shop name is required' : null,
+                                    // Interactive Contact / Merchant Picklist
+                                    Autocomplete<ContactModel>(
+                                      initialValue: TextEditingValue(text: shopNameCtrl.text),
+                                      displayStringForOption: (c) => '${c.businessShopName} (${c.ownerName})',
+                                      optionsBuilder: (textVal) {
+                                        if (textVal.text.isEmpty) return _contacts;
+                                        return _contacts.where((c) =>
+                                            c.businessShopName.toLowerCase().contains(textVal.text.toLowerCase()) ||
+                                            c.ownerName.toLowerCase().contains(textVal.text.toLowerCase()) ||
+                                            c.mobileNumber.contains(textVal.text));
+                                      },
+                                      onSelected: (c) {
+                                        setDlgState(() {
+                                          selectedContact = c;
+                                          shopNameCtrl.text = c.businessShopName;
+                                        });
+                                      },
+                                      fieldViewBuilder: (ctx, ctrl, focusNode, onSubmitted) {
+                                        return TextFormField(
+                                          controller: ctrl,
+                                          focusNode: focusNode,
+                                          style: const TextStyle(color: AppTheme.textPrimary),
+                                          decoration: InputDecoration(
+                                            labelText: 'Select Merchant from Contact Picklist *',
+                                            prefixIcon: const Icon(Icons.storefront_rounded, color: AppTheme.primaryTeal),
+                                            suffixIcon: PopupMenuButton<ContactModel>(
+                                              icon: const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.textHint),
+                                              onSelected: (c) {
+                                                setDlgState(() {
+                                                  selectedContact = c;
+                                                  ctrl.text = c.businessShopName;
+                                                  shopNameCtrl.text = c.businessShopName;
+                                                });
+                                              },
+                                              itemBuilder: (ctx) => _contacts.map((c) {
+                                                return PopupMenuItem(
+                                                  value: c,
+                                                  child: Text('${c.businessShopName} • ${c.ownerName}'),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                          onChanged: (v) => shopNameCtrl.text = v,
+                                          validator: (v) => (v == null || v.trim().isEmpty) ? 'Shop name is required' : null,
+                                        );
+                                      },
                                     ),
                                     const SizedBox(height: 12),
+
+                                    // Display Auto Notification Preference Pill
+                                    if (selectedContact != null && selectedContact!.mobileNumber.isNotEmpty) ...[
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryTeal.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.bolt_rounded, color: AppTheme.primaryTeal, size: 18),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                selectedContact!.enableNotification
+                                                    ? 'Auto-dispatch invoice via ${selectedContact!.notificationMethod} to +91 ${selectedContact!.mobileNumber}'
+                                                    : 'Notifications disabled for ${selectedContact!.ownerName}',
+                                                style: const TextStyle(color: AppTheme.primaryTeal, fontSize: 12, fontWeight: FontWeight.w600),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+
                                     Row(
                                       children: [
                                         Expanded(
@@ -212,7 +525,7 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
                                 ),
                               ),
 
-                              // Tab 2: Itemized Products (Pick from catalog or custom)
+                              // Tab 2: Itemized Products
                               Column(
                                 children: [
                                   Row(
@@ -366,7 +679,7 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
                                                 decoration: BoxDecoration(color: AppTheme.card, borderRadius: BorderRadius.circular(14)),
                                                 child: Row(
                                                   children: [
-                                                    Icon(Icons.payment_rounded, color: AppTheme.primaryTeal, size: 20),
+                                                    const Icon(Icons.payment_rounded, color: AppTheme.primaryTeal, size: 20),
                                                     const SizedBox(width: 10),
                                                     Expanded(
                                                       child: Column(
@@ -433,6 +746,10 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
 
                     Navigator.pop(dialogCtx);
                     await _trackerService.savePurchase(p, draftItems, draftPayments);
+
+                    // Auto dispatch transaction invoice if enabled
+                    _autoDispatchInvoice(p, selectedContact);
+
                     _loadInitialData();
                   },
                   child: Text(existing == null ? 'Save Purchase' : 'Update Purchase'),
@@ -661,10 +978,26 @@ class _DailyTrackerViewState extends State<DailyTrackerView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── 17 Dashboard Metrics Summary Grid ────────────────────────
-              const Text('Daily Expense & Financial Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+              // Top Action Header with Send Monthly Invoice Button
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Daily Expense & Financial Metrics', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: AppTheme.textPrimary)),
+                  ElevatedButton.icon(
+                    onPressed: _showMonthlyInvoiceModal,
+                    icon: const Icon(Icons.send_rounded, size: 16),
+                    label: const Text('Send Monthly Invoice'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryTeal,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 14),
 
+              // ── 17 Dashboard Metrics Summary Grid ────────────────────────
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
