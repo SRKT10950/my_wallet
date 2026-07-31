@@ -136,7 +136,7 @@ class DatabaseService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final isDone = prefs.getBool('db_schema_v7_product_category_ready') ?? false;
+      final isDone = prefs.getBool('db_schema_v8_daily_purchases_ready') ?? false;
       if (isDone) {
         _isSchemaInitialized = true;
         return;
@@ -148,9 +148,11 @@ class DatabaseService {
       await _createCategoriesTable();
       await _createProductsTable();
       await _createProductPriceHistoryTable();
-      await _migrateProductsTable();
+      await _createDailyPurchasesTable();
+      await _createDailyPurchaseItemsTable();
+      await _createDailyPaymentHistoryTable();
 
-      await prefs.setBool('db_schema_v7_product_category_ready', true);
+      await prefs.setBool('db_schema_v8_daily_purchases_ready', true);
       _isSchemaInitialized = true;
     } catch (_) {
       // Fallback silently if offline
@@ -240,10 +242,6 @@ class DatabaseService {
     ''');
   }
 
-  Future<void> _migrateProductsTable() async {
-    await query('ALTER TABLE products ADD COLUMN IF NOT EXISTS category_name VARCHAR(100) DEFAULT \'General\'');
-  }
-
   Future<void> _createProductPriceHistoryTable() async {
     await query('''
       CREATE TABLE IF NOT EXISTS product_price_history (
@@ -254,6 +252,71 @@ class DatabaseService {
         market_price    NUMERIC(12,2) DEFAULT 0.00,
         effective_date  TEXT NOT NULL,
         updated_by_user TEXT NOT NULL DEFAULT 'System'
+      )
+    ''');
+  }
+
+  Future<void> _createDailyPurchasesTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS daily_purchases (
+        ${DbBaseFields.columnDefinitions},
+        purchase_id       TEXT NOT NULL,
+        bill_number       TEXT NOT NULL,
+        invoice_number    TEXT,
+        shop_name         TEXT NOT NULL,
+        shop_type         TEXT DEFAULT 'General',
+        billing_date      TEXT NOT NULL,
+        due_date          TEXT,
+        payment_date      TEXT,
+        currency          TEXT DEFAULT '₹',
+        subtotal          NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        discount          NUMERIC(12,2) DEFAULT 0.00,
+        tax               NUMERIC(12,2) DEFAULT 0.00,
+        delivery_charge   NUMERIC(12,2) DEFAULT 0.00,
+        packing_charge    NUMERIC(12,2) DEFAULT 0.00,
+        other_charge      NUMERIC(12,2) DEFAULT 0.00,
+        round_off         NUMERIC(12,2) DEFAULT 0.00,
+        grand_total       NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        amount_paid       NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        due_amount        NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        payment_status    TEXT DEFAULT 'Paid',
+        payment_method    TEXT DEFAULT 'Cash',
+        cashback          NUMERIC(12,2) DEFAULT 0.00,
+        reward_points     INTEGER DEFAULT 0,
+        notes             TEXT
+      )
+    ''');
+  }
+
+  Future<void> _createDailyPurchaseItemsTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS daily_purchase_items (
+        ${DbBaseFields.columnDefinitions},
+        purchase_id    TEXT NOT NULL,
+        product_id     TEXT,
+        product_name   TEXT NOT NULL,
+        barcode        TEXT,
+        category       TEXT DEFAULT 'General',
+        quantity       NUMERIC(10,3) NOT NULL DEFAULT 1,
+        unit           TEXT DEFAULT 'Piece',
+        unit_price     NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        market_price   NUMERIC(12,2) DEFAULT 0.00,
+        discount       NUMERIC(12,2) DEFAULT 0.00,
+        tax            NUMERIC(12,2) DEFAULT 0.00,
+        total_price    NUMERIC(12,2) NOT NULL DEFAULT 0.00
+      )
+    ''');
+  }
+
+  Future<void> _createDailyPaymentHistoryTable() async {
+    await query('''
+      CREATE TABLE IF NOT EXISTS daily_payment_history (
+        ${DbBaseFields.columnDefinitions},
+        purchase_id     TEXT NOT NULL,
+        payment_method  TEXT NOT NULL,
+        amount          NUMERIC(12,2) NOT NULL DEFAULT 0.00,
+        reference_no    TEXT,
+        payment_date    TEXT NOT NULL
       )
     ''');
   }
