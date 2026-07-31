@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import '../db/db_base_fields.dart';
 import '../services/device_service.dart';
 
 /// Result wrapper for all database operations.
@@ -68,14 +69,12 @@ class DatabaseService {
 
         // Handle object response (INSERT / UPDATE / DELETE)
         if (data is Map<String, dynamic>) {
-          // Check for error field in body
           if (data.containsKey('error')) {
             return DbResult(
               success: false,
               error: data['error'].toString(),
             );
           }
-          // Wrap single row selects
           if (data.containsKey('rows')) {
             return DbResult(
               success: true,
@@ -110,17 +109,68 @@ class DatabaseService {
     }
   }
 
-  /// Initialize required tables on first run.
+  // ── Schema Initialization ─────────────────────────────────────────
+
+  /// Creates all required tables on first run (if not exist).
+  /// All tables use the standardized base fields from [DbBaseFields].
   Future<void> initializeSchema() async {
+    await _createUsersTable();
+  }
+
+  Future<void> _createUsersTable() async {
     await query('''
       CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
+        ${DbBaseFields.columnDefinitions},
+        name          TEXT NOT NULL,
+        email         TEXT NOT NULL UNIQUE,
         password_hash TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        last_login TEXT
+        last_login    TEXT
       )
     ''');
+  }
+
+  // ── Generic Helpers ───────────────────────────────────────────────
+
+  /// Insert a record into [table] using a pre-built fields map.
+  /// Returns the DbResult from the API.
+  Future<DbResult> insertRecord(
+      String table, Map<String, dynamic> fields) async {
+    final insert = DbBaseFields.buildInsertClause(fields);
+    return query(
+      'INSERT INTO $table (${insert.columns}) VALUES (${insert.placeholders})',
+      insert.params,
+    );
+  }
+
+  /// Update a record in [table] identified by [id],
+  /// applying only the fields in [updateFields].
+  Future<DbResult> updateRecord(
+    String table,
+    String id,
+    Map<String, dynamic> updateFields,
+  ) async {
+    final set = DbBaseFields.buildSetClause(updateFields);
+    return query(
+      'UPDATE $table SET ${set.clause} WHERE id = ? AND ${DbBaseFields.notDeleted}',
+      [...set.params, id],
+    );
+  }
+
+  /// Soft-delete a record in [table] by [id].
+  Future<DbResult> softDelete(
+    String table,
+    String id, {
+    required String deletedBy,
+    required int currentVersion,
+  }) async {
+    final fields = DbBaseFields.softDeleteRecord(
+      deletedBy: deletedBy,
+      currentVersion: currentVersion,
+    );
+    final set = DbBaseFields.buildSetClause(fields);
+    return query(
+      'UPDATE $table SET ${set.clause} WHERE id = ?',
+      [...set.params, id],
+    );
   }
 }
