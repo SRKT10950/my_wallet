@@ -154,7 +154,7 @@ Thank you for your transaction!
               if (d == null) return false;
               final matchesMonth = d.month == selectedMonth && d.year == selectedYear;
               final matchesContact = selectedContact == null ||
-                  p.shopName.toLowerCase().contains(selectedContact!.businessShopName.toLowerCase()) ||
+                  p.shopName.toLowerCase().contains((selectedContact!.businessShopName ?? '').toLowerCase()) ||
                   p.shopName.toLowerCase().contains(selectedContact!.ownerName.toLowerCase());
               return matchesMonth && matchesContact;
             }).toList();
@@ -275,6 +275,8 @@ Please clear outstanding balance if due. Thank you!
                     final isWA = selectedContact!.notificationMethod.toLowerCase() == 'whatsapp';
                     final urlStr = isWA ? 'https://wa.me/$fullPhone?text=$encoded' : 'sms:+$fullPhone?body=$encoded';
 
+                    final messenger = ScaffoldMessenger.of(context);
+                    final method = selectedContact!.notificationMethod;
                     try {
                       final uri = Uri.parse(urlStr);
                       if (await canLaunchUrl(uri)) {
@@ -282,14 +284,12 @@ Please clear outstanding balance if due. Thank you!
                       }
                     } catch (_) {}
 
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('⚡ Monthly Statement dispatched via ${selectedContact!.notificationMethod} to +$fullPhone'),
-                          backgroundColor: AppTheme.primaryTeal,
-                        ),
-                      );
-                    }
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('⚡ Monthly Statement dispatched via $method to +$fullPhone'),
+                        backgroundColor: AppTheme.primaryTeal,
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.send_rounded, size: 18),
                   label: const Text('Dispatch Statement'),
@@ -319,7 +319,7 @@ Please clear outstanding balance if due. Thank you!
     final notesCtrl = TextEditingController(text: existing?.notes ?? '');
 
     ContactModel? selectedContact = _contacts.firstWhere(
-      (c) => c.businessShopName.toLowerCase() == (existing?.shopName ?? '').toLowerCase() || c.ownerName.toLowerCase() == (existing?.shopName ?? '').toLowerCase(),
+      (c) => (c.businessShopName ?? '').toLowerCase() == (existing?.shopName ?? '').toLowerCase() || c.ownerName.toLowerCase() == (existing?.shopName ?? '').toLowerCase(),
       orElse: () => _contacts.isNotEmpty ? _contacts.first : ContactModel(
         id: 'c_default',
         createdAt: '',
@@ -331,7 +331,7 @@ Please clear outstanding balance if due. Thank you!
     );
 
     if (existing == null && _contacts.isNotEmpty) {
-      shopNameCtrl.text = selectedContact.businessShopName;
+      shopNameCtrl.text = selectedContact.businessShopName ?? selectedContact.ownerName;
     }
 
     List<DailyPurchaseItemModel> draftItems = existing != null ? List.from(existing.items) : [];
@@ -409,18 +409,18 @@ Please clear outstanding balance if due. Thank you!
                                     // Interactive Contact / Merchant Picklist
                                     Autocomplete<ContactModel>(
                                       initialValue: TextEditingValue(text: shopNameCtrl.text),
-                                      displayStringForOption: (c) => '${c.businessShopName} (${c.ownerName})',
+                                      displayStringForOption: (c) => '${c.businessShopName ?? c.ownerName} (${c.ownerName})',
                                       optionsBuilder: (textVal) {
                                         if (textVal.text.isEmpty) return _contacts;
                                         return _contacts.where((c) =>
-                                            c.businessShopName.toLowerCase().contains(textVal.text.toLowerCase()) ||
+                                            (c.businessShopName ?? '').toLowerCase().contains(textVal.text.toLowerCase()) ||
                                             c.ownerName.toLowerCase().contains(textVal.text.toLowerCase()) ||
                                             c.mobileNumber.contains(textVal.text));
                                       },
                                       onSelected: (c) {
                                         setDlgState(() {
                                           selectedContact = c;
-                                          shopNameCtrl.text = c.businessShopName;
+                                          shopNameCtrl.text = c.businessShopName ?? c.ownerName;
                                         });
                                       },
                                       fieldViewBuilder: (ctx, ctrl, focusNode, onSubmitted) {
@@ -436,14 +436,14 @@ Please clear outstanding balance if due. Thank you!
                                               onSelected: (c) {
                                                 setDlgState(() {
                                                   selectedContact = c;
-                                                  ctrl.text = c.businessShopName;
-                                                  shopNameCtrl.text = c.businessShopName;
+                                                  ctrl.text = c.businessShopName ?? c.ownerName;
+                                                  shopNameCtrl.text = c.businessShopName ?? c.ownerName;
                                                 });
                                               },
                                               itemBuilder: (ctx) => _contacts.map((c) {
                                                 return PopupMenuItem(
                                                   value: c,
-                                                  child: Text('${c.businessShopName} • ${c.ownerName}'),
+                                                  child: Text('${c.businessShopName ?? c.ownerName} • ${c.ownerName}'),
                                                 );
                                               }).toList(),
                                             ),
