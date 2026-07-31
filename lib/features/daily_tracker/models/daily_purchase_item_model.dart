@@ -51,11 +51,11 @@ class DailyPurchaseItemModel extends BaseModel {
 
   factory DailyPurchaseItemModel.fromMap(Map<String, dynamic> map) {
     final base = BaseModel.baseFromMap(map);
-    final qty = (map['quantity'] as num?)?.toDouble() ?? 1.0;
-    final price = (map['unit_price'] as num?)?.toDouble() ?? 0.0;
-    final disc = (map['discount'] as num?)?.toDouble() ?? 0.0;
-    final tx = (map['tax'] as num?)?.toDouble() ?? 0.0;
-    final tot = (map['total_price'] as num?)?.toDouble() ?? ((qty * price) - disc + tx);
+    final qty = BaseModel.toDouble(map['quantity'], 1.0);
+    final price = BaseModel.toDouble(map['unit_price']);
+    final disc = BaseModel.toDouble(map['discount']);
+    final tx = BaseModel.toDouble(map['tax']);
+    final tot = BaseModel.toDouble(map['total_price'], (qty * price) - disc + tx);
 
     return DailyPurchaseItemModel(
       // Base fields
@@ -81,7 +81,7 @@ class DailyPurchaseItemModel extends BaseModel {
       quantity: qty,
       unit: map['unit']?.toString() ?? 'Piece',
       unitPrice: price,
-      marketPrice: (map['market_price'] as num?)?.toDouble() ?? 0.0,
+      marketPrice: BaseModel.toDouble(map['market_price']),
       discount: disc,
       tax: tx,
       totalPrice: tot,

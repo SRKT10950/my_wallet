@@ -90,9 +90,9 @@ class DailyPurchaseModel extends BaseModel {
     List<DailyPaymentHistoryModel> paymentHistory = const [],
   }) {
     final base = BaseModel.baseFromMap(map);
-    final tot = (map['grand_total'] as num?)?.toDouble() ?? 0.0;
-    final paid = (map['amount_paid'] as num?)?.toDouble() ?? tot;
-    final due = (map['due_amount'] as num?)?.toDouble() ?? (tot - paid > 0 ? tot - paid : 0.0);
+    final tot = BaseModel.toDouble(map['grand_total']);
+    final paid = BaseModel.toDouble(map['amount_paid'], tot);
+    final due = BaseModel.toDouble(map['due_amount'], (tot - paid > 0 ? tot - paid : 0.0));
 
     String status = map['payment_status']?.toString() ?? 'Paid';
     if (due <= 0) {
@@ -128,20 +128,20 @@ class DailyPurchaseModel extends BaseModel {
       dueDate: map['due_date']?.toString(),
       paymentDate: map['payment_date']?.toString(),
       currency: map['currency']?.toString() ?? '₹',
-      subtotal: (map['subtotal'] as num?)?.toDouble() ?? tot,
-      discount: (map['discount'] as num?)?.toDouble() ?? 0.0,
-      tax: (map['tax'] as num?)?.toDouble() ?? 0.0,
-      deliveryCharge: (map['delivery_charge'] as num?)?.toDouble() ?? 0.0,
-      packingCharge: (map['packing_charge'] as num?)?.toDouble() ?? 0.0,
-      otherCharge: (map['other_charge'] as num?)?.toDouble() ?? 0.0,
-      roundOff: (map['round_off'] as num?)?.toDouble() ?? 0.0,
+      subtotal: BaseModel.toDouble(map['subtotal'], tot),
+      discount: BaseModel.toDouble(map['discount']),
+      tax: BaseModel.toDouble(map['tax']),
+      deliveryCharge: BaseModel.toDouble(map['delivery_charge']),
+      packingCharge: BaseModel.toDouble(map['packing_charge']),
+      otherCharge: BaseModel.toDouble(map['other_charge']),
+      roundOff: BaseModel.toDouble(map['round_off']),
       grandTotal: tot,
       amountPaid: paid,
       dueAmount: due,
       paymentStatus: status,
       paymentMethod: map['payment_method']?.toString() ?? 'Cash',
-      cashback: (map['cashback'] as num?)?.toDouble() ?? 0.0,
-      rewardPoints: (map['reward_points'] as num?)?.toInt() ?? 0,
+      cashback: BaseModel.toDouble(map['cashback']),
+      rewardPoints: BaseModel.toInt(map['reward_points']),
       notes: map['notes']?.toString(),
       items: items,
       paymentHistory: paymentHistory,

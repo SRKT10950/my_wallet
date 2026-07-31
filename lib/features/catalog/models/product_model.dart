@@ -116,8 +116,8 @@ class ProductModel extends BaseModel {
 
   factory ProductModel.fromMap(Map<String, dynamic> map) {
     final base = BaseModel.baseFromMap(map);
-    final cur = (map['current_price'] as num?)?.toDouble() ?? 0.0;
-    final old = (map['old_price'] as num?)?.toDouble() ?? 0.0;
+    final cur = BaseModel.toDouble(map['current_price']);
+    final old = BaseModel.toDouble(map['old_price']);
 
     String trend = map['price_trend']?.toString() ?? 'no_change';
     if (cur > old && old > 0) trend = 'increased';
@@ -150,18 +150,18 @@ class ProductModel extends BaseModel {
       unit: map['unit']?.toString() ?? 'Piece',
       oldPrice: old,
       currentPrice: cur,
-      marketPrice: (map['market_price'] as num?)?.toDouble() ?? 0.0,
+      marketPrice: BaseModel.toDouble(map['market_price']),
       currency: map['currency']?.toString() ?? '₹',
       effectiveDate: map['effective_date']?.toString() ?? DateTime.now().toString().split(' ')[0],
       expiryDate: map['expiry_date']?.toString(),
-      priceDifference: (map['price_difference'] as num?)?.toDouble() ?? (cur - old),
+      priceDifference: BaseModel.toDouble(map['price_difference'], cur - old),
       priceTrend: trend,
       barcode: map['barcode']?.toString(),
       barcodeType: map['barcode_type']?.toString() ?? 'Code128',
       qrCode: map['qr_code']?.toString(),
       sku: map['sku']?.toString(),
       hsnCode: map['hsn_code']?.toString(),
-      gstPercentage: (map['gst_percentage'] as num?)?.toDouble() ?? 0.0,
+      gstPercentage: BaseModel.toDouble(map['gst_percentage']),
       manufacturer: map['manufacturer']?.toString(),
       country: map['country']?.toString() ?? 'India',
       referenceLink: map['reference_link']?.toString(),

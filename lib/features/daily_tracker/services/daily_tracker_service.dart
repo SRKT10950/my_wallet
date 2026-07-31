@@ -129,7 +129,9 @@ class DailyTrackerService {
 
         list.add(DailyPurchaseModel.fromMap(row, items: items, paymentHistory: payments));
       }
-      return list;
+
+      final defaultsToKeep = _defaultPurchases.where((d) => !list.any((p) => p.id == d.id || p.billNumber == d.billNumber));
+      return [...list, ...defaultsToKeep];
     }
 
     return _defaultPurchases;

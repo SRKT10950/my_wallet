@@ -172,7 +172,9 @@ class ProductService {
     );
 
     if (result.success && result.isNotEmpty) {
-      return result.rows.map((row) => ProductModel.fromMap(row)).toList();
+      final dbProds = result.rows.map((row) => ProductModel.fromMap(row)).toList();
+      final defaultsToKeep = _defaultProducts.where((d) => !dbProds.any((p) => p.id == d.id || p.productCode == d.productCode));
+      return [...dbProds, ...defaultsToKeep];
     }
 
     return _defaultProducts;

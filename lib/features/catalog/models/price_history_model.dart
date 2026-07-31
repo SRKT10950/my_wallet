@@ -56,9 +56,9 @@ class PriceHistoryModel extends BaseModel {
       metadata: base['metadata'] as String?,
       // Price history fields
       productId: map['product_id']?.toString() ?? '',
-      oldPrice: (map['old_price'] as num?)?.toDouble() ?? 0.0,
-      newPrice: (map['new_price'] as num?)?.toDouble() ?? 0.0,
-      marketPrice: (map['market_price'] as num?)?.toDouble() ?? 0.0,
+      oldPrice: BaseModel.toDouble(map['old_price']),
+      newPrice: BaseModel.toDouble(map['new_price']),
+      marketPrice: BaseModel.toDouble(map['market_price']),
       effectiveDate: map['effective_date']?.toString() ?? DateTime.now().toString().split(' ')[0],
       updatedByUser: map['updated_by_user']?.toString() ?? map['created_by']?.toString() ?? 'System',
     );

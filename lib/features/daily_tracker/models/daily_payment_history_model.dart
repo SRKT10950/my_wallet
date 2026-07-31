@@ -55,7 +55,7 @@ class DailyPaymentHistoryModel extends BaseModel {
       // Payment fields
       purchaseId: map['purchase_id']?.toString() ?? '',
       paymentMethod: map['payment_method']?.toString() ?? 'Cash',
-      amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
+      amount: BaseModel.toDouble(map['amount']),
       referenceNo: map['reference_no']?.toString(),
       paymentDate: map['payment_date']?.toString() ?? DateTime.now().toString().split(' ')[0],
     );

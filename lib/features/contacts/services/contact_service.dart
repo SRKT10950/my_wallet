@@ -57,7 +57,9 @@ class ContactService {
     );
 
     if (result.success && result.isNotEmpty) {
-      return result.rows.map((row) => ContactModel.fromMap(row)).toList();
+      final dbContacts = result.rows.map((row) => ContactModel.fromMap(row)).toList();
+      final defaultsToKeep = _sampleContacts.where((s) => !dbContacts.any((c) => c.id == s.id || c.mobileNumber == s.mobileNumber));
+      return [...dbContacts, ...defaultsToKeep];
     }
 
     return _sampleContacts;

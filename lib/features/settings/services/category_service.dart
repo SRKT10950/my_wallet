@@ -77,7 +77,9 @@ class CategoryService {
     );
 
     if (result.success && result.isNotEmpty) {
-      return result.rows.map((row) => CategoryModel.fromMap(row)).toList();
+      final dbCategories = result.rows.map((row) => CategoryModel.fromMap(row)).toList();
+      final defaultsToKeep = _defaultCategories.where((d) => !dbCategories.any((c) => c.categoryName.toLowerCase() == d.categoryName.toLowerCase()));
+      return [...dbCategories, ...defaultsToKeep];
     }
 
     return _defaultCategories;
