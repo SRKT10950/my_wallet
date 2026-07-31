@@ -14,7 +14,7 @@ class AppConstants {
   // ── Storage Keys ─────────────────────────────────────────────────────
   static const String keyDeviceId = 'device_id';
   static const String keyAuthToken = 'auth_token';
-  static const String keyUserId = 'user_id'; // stored as String UUID
+  static const String keyUserId = 'user_id';
   static const String keyUserName = 'user_name';
   static const String keyUserMobile = 'user_mobile';
 
@@ -24,4 +24,17 @@ class AppConstants {
   static const String routeRegister = '/register';
   static const String routeOtp = '/otp';
   static const String routeHome = '/home';
+
+  // ── Module Routes ─────────────────────────────────────────────────────
+  static const String routeDashboard = '/dashboard';
+  static const String routeDailyTracker = '/daily_tracker';
+  static const String routeLendBorrow = '/lend_borrow';
+  static const String routeExpenses = '/expenses';
+  static const String routeLoans = '/loans';
+  static const String routeInvestment = '/investment';
+  static const String routeOdAccount = '/od_account';
+  static const String routeContacts = '/contacts';
+  static const String routeCatalog = '/catalog';
+  static const String routeReceiptScan = '/receipt_scan';
+  static const String routeSettings = '/settings';
 }
