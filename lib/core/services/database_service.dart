@@ -23,11 +23,6 @@ class DbResult {
 }
 
 /// Low-level database service that wraps the My Wallet REST API.
-///
-/// Every request is automatically injected with:
-///   - `x-api-key`
-///   - `x-app-name`  (device name)
-///   - `x-device-id` (unique installation ID)
 class DatabaseService {
   DatabaseService._();
   static final DatabaseService instance = DatabaseService._();
@@ -35,9 +30,6 @@ class DatabaseService {
   final _client = http.Client();
 
   /// Execute a raw SQL query against the My Wallet database.
-  ///
-  /// [sql]    — SQL query string with `?` placeholders.
-  /// [params] — List of values to bind to placeholders (optional).
   Future<DbResult> query(String sql, [List<dynamic>? params]) async {
     try {
       final device = DeviceService.instance;
@@ -109,12 +101,12 @@ class DatabaseService {
     }
   }
 
-  // ── Schema Initialization ─────────────────────────────────────────
+  // ── Schema Initialization & Auto-Migration ─────────────────────────
 
-  /// Creates all required tables on first run (if not exist).
-  /// All tables use the standardized base fields from [DbBaseFields].
+  /// Creates all required tables and auto-migrates missing columns on startup.
   Future<void> initializeSchema() async {
     await _createUsersTable();
+    await _migrateUsersTable();
   }
 
   Future<void> _createUsersTable() async {
@@ -123,7 +115,9 @@ class DatabaseService {
         ${DbBaseFields.columnDefinitions},
         name           TEXT NOT NULL,
         mobile         TEXT NOT NULL UNIQUE,
-        password_hash  TEXT NOT NULL,
+        mobile_number  TEXT,
+        password_hash  TEXT,
+        pin            TEXT,
         otp_code       TEXT,
         otp_expires_at TEXT,
         is_verified    INTEGER NOT NULL DEFAULT 0,
@@ -132,10 +126,42 @@ class DatabaseService {
     ''');
   }
 
+  Future<void> _migrateUsersTable() async {
+    final migrations = [
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS id VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS mobile_number VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS pin VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_code VARCHAR(10)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS otp_expires_at VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified INTEGER DEFAULT 0',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_by VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS is_deleted INTEGER DEFAULT 0',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS version INTEGER DEFAULT 1',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT \'active\'',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(50)',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS remarks TEXT',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS metadata TEXT',
+      'ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login VARCHAR(50)',
+      'UPDATE users SET mobile = mobile_number WHERE mobile IS NULL AND mobile_number IS NOT NULL',
+      'UPDATE users SET is_deleted = 0 WHERE is_deleted IS NULL',
+      'UPDATE users SET is_verified = 1 WHERE is_verified IS NULL OR pin IS NOT NULL',
+      'UPDATE users SET status = \'active\' WHERE status IS NULL',
+      'UPDATE users SET version = 1 WHERE version IS NULL',
+    ];
+
+    for (final sql in migrations) {
+      await query(sql);
+    }
+  }
+
   // ── Generic Helpers ───────────────────────────────────────────────
 
-  /// Insert a record into [table] using a pre-built fields map.
-  /// Returns the DbResult from the API.
   Future<DbResult> insertRecord(
       String table, Map<String, dynamic> fields) async {
     final insert = DbBaseFields.buildInsertClause(fields);
@@ -145,8 +171,6 @@ class DatabaseService {
     );
   }
 
-  /// Update a record in [table] identified by [id],
-  /// applying only the fields in [updateFields].
   Future<DbResult> updateRecord(
     String table,
     String id,
@@ -154,12 +178,11 @@ class DatabaseService {
   ) async {
     final set = DbBaseFields.buildSetClause(updateFields);
     return query(
-      'UPDATE $table SET ${set.clause} WHERE id = ? AND ${DbBaseFields.notDeleted}',
+      'UPDATE $table SET ${set.clause} WHERE id = ? AND (is_deleted = 0 OR is_deleted IS NULL)',
       [...set.params, id],
     );
   }
 
-  /// Soft-delete a record in [table] by [id].
   Future<DbResult> softDelete(
     String table,
     String id, {

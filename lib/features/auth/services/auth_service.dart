@@ -47,17 +47,18 @@ class AuthService {
 
   // ── Login ──────────────────────────────────────────────────────────
   Future<AuthResult> login(String mobile, String password) async {
-    final hash = _hashPassword(password);
     final cleanMobile = mobile.trim();
+    final cleanPassword = password.trim();
+    final hash = _hashPassword(cleanPassword);
 
-    // Query non-deleted user matching mobile & password hash
+    // Query matching mobile/mobile_number and password_hash/pin
     final result = await _db.query(
       '''SELECT * FROM users
-         WHERE mobile = ?
-           AND password_hash = ?
-           AND ${DbBaseFields.notDeleted}
+         WHERE (mobile = ? OR mobile_number = ?)
+           AND (password_hash = ? OR pin = ? OR password_hash = ?)
+           AND (is_deleted = 0 OR is_deleted IS NULL)
          LIMIT 1''',
-      [cleanMobile, hash],
+      [cleanMobile, cleanMobile, hash, cleanPassword, cleanPassword],
     );
 
     if (!result.success) {
@@ -75,7 +76,6 @@ class AuthService {
 
     // Check if account is verified
     if (!user.isVerified) {
-      // Re-generate fresh OTP for verification if needed
       final otp = _generateOtp();
       final expiresAt =
           DateTime.now().toUtc().add(const Duration(minutes: 5)).toIso8601String();
@@ -83,8 +83,8 @@ class AuthService {
       await _db.query(
         '''UPDATE users
            SET otp_code = ?, otp_expires_at = ?, updated_at = ?
-           WHERE id = ?''',
-        [otp, expiresAt, DateTime.now().toUtc().toIso8601String(), user.id],
+           WHERE (mobile = ? OR mobile_number = ?)''',
+        [otp, expiresAt, DateTime.now().toUtc().toIso8601String(), cleanMobile, cleanMobile],
       );
 
       return AuthResult(
@@ -101,15 +101,15 @@ class AuthService {
     // Update last_login, updated_at, version
     final updateFields = {
       ...DbBaseFields.updatedRecord(
-        updatedBy: user.id,
+        updatedBy: user.id.isNotEmpty ? user.id : 'system',
         currentVersion: user.version,
       ),
       'last_login': now,
     };
     final set = DbBaseFields.buildSetClause(updateFields);
     await _db.query(
-      'UPDATE users SET ${set.clause} WHERE id = ?',
-      [...set.params, user.id],
+      'UPDATE users SET ${set.clause} WHERE (mobile = ? OR mobile_number = ?)',
+      [...set.params, cleanMobile, cleanMobile],
     );
 
     await _persistSession(user);
@@ -123,11 +123,11 @@ class AuthService {
 
     // Check for existing user with same mobile number
     final existing = await _db.query(
-      '''SELECT id, is_verified FROM users
-         WHERE mobile = ?
-           AND ${DbBaseFields.notDeleted}
+      '''SELECT id, is_verified, pin FROM users
+         WHERE (mobile = ? OR mobile_number = ?)
+           AND (is_deleted = 0 OR is_deleted IS NULL)
          LIMIT 1''',
-      [cleanMobile],
+      [cleanMobile, cleanMobile],
     );
 
     if (!existing.success) {
@@ -136,7 +136,8 @@ class AuthService {
 
     if (existing.isNotEmpty) {
       final isVerified =
-          (existing.rows.first['is_verified'] as num?)?.toInt() == 1;
+          (existing.rows.first['is_verified'] as num?)?.toInt() == 1 ||
+              existing.rows.first['pin'] != null;
       if (isVerified) {
         return const AuthResult(
           success: false,
@@ -145,34 +146,35 @@ class AuthService {
       }
     }
 
-    final hash = _hashPassword(password);
+    final hash = _hashPassword(password.trim());
     final otp = _generateOtp();
     final expiresAt =
         DateTime.now().toUtc().add(const Duration(minutes: 5)).toIso8601String();
 
     if (existing.isNotEmpty) {
-      // Update existing pending user with new password & OTP
-      final existingId = existing.rows.first['id'].toString();
       await _db.query(
         '''UPDATE users
-           SET name = ?, password_hash = ?, otp_code = ?, otp_expires_at = ?, updated_at = ?
-           WHERE id = ?''',
+           SET name = ?, password_hash = ?, pin = ?, otp_code = ?, otp_expires_at = ?, updated_at = ?
+           WHERE (mobile = ? OR mobile_number = ?)''',
         [
           name.trim(),
           hash,
+          password.trim(),
           otp,
           expiresAt,
           DateTime.now().toUtc().toIso8601String(),
-          existingId
+          cleanMobile,
+          cleanMobile
         ],
       );
     } else {
-      // Create new pending user
       final fields = {
         ...DbBaseFields.newRecord(),
         'name': name.trim(),
         'mobile': cleanMobile,
+        'mobile_number': cleanMobile,
         'password_hash': hash,
+        'pin': password.trim(),
         'otp_code': otp,
         'otp_expires_at': expiresAt,
         'is_verified': 0,
@@ -186,16 +188,14 @@ class AuthService {
       }
     }
 
-    // Fetch newly inserted/updated user
     final userResult = await _db.query(
-      'SELECT * FROM users WHERE mobile = ? AND ${DbBaseFields.notDeleted} LIMIT 1',
-      [cleanMobile],
+      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ?) LIMIT 1',
+      [cleanMobile, cleanMobile],
     );
 
     if (userResult.isNotEmpty) {
       final user = UserModel.fromMap(userResult.rows.first);
 
-      // Self-reference created_by / updated_by
       if (user.createdBy == null || user.createdBy!.isEmpty) {
         final selfRef = DbBaseFields.buildSetClause({
           'created_by': user.id,
@@ -224,8 +224,8 @@ class AuthService {
     final cleanOtp = inputOtp.trim();
 
     final result = await _db.query(
-      'SELECT * FROM users WHERE mobile = ? AND ${DbBaseFields.notDeleted} LIMIT 1',
-      [cleanMobile],
+      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ?) LIMIT 1',
+      [cleanMobile, cleanMobile],
     );
 
     if (!result.success || result.isEmpty) {
@@ -256,10 +256,9 @@ class AuthService {
 
     final now = DateTime.now().toUtc().toIso8601String();
 
-    // Mark as verified & active
     final updateFields = {
       ...DbBaseFields.updatedRecord(
-        updatedBy: user.id,
+        updatedBy: user.id.isNotEmpty ? user.id : 'system',
         currentVersion: user.version,
       ),
       'is_verified': 1,
@@ -271,8 +270,8 @@ class AuthService {
 
     final set = DbBaseFields.buildSetClause(updateFields);
     await _db.query(
-      'UPDATE users SET ${set.clause} WHERE id = ?',
-      [...set.params, user.id],
+      'UPDATE users SET ${set.clause} WHERE (mobile = ? OR mobile_number = ?)',
+      [...set.params, cleanMobile, cleanMobile],
     );
 
     final updatedUser = UserModel.fromMap({
@@ -288,8 +287,8 @@ class AuthService {
   Future<AuthResult> resendOtp(String mobile) async {
     final cleanMobile = mobile.trim();
     final result = await _db.query(
-      'SELECT * FROM users WHERE mobile = ? AND ${DbBaseFields.notDeleted} LIMIT 1',
-      [cleanMobile],
+      'SELECT * FROM users WHERE (mobile = ? OR mobile_number = ?) LIMIT 1',
+      [cleanMobile, cleanMobile],
     );
 
     if (!result.success || result.isEmpty) {
@@ -307,8 +306,8 @@ class AuthService {
     await _db.query(
       '''UPDATE users
          SET otp_code = ?, otp_expires_at = ?, updated_at = ?
-         WHERE id = ?''',
-      [newOtp, expiresAt, DateTime.now().toUtc().toIso8601String(), user.id],
+         WHERE (mobile = ? OR mobile_number = ?)''',
+      [newOtp, expiresAt, DateTime.now().toUtc().toIso8601String(), cleanMobile, cleanMobile],
     );
 
     return AuthResult(
