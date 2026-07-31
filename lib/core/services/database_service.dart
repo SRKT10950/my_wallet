@@ -121,10 +121,13 @@ class DatabaseService {
     await query('''
       CREATE TABLE IF NOT EXISTS users (
         ${DbBaseFields.columnDefinitions},
-        name          TEXT NOT NULL,
-        email         TEXT NOT NULL UNIQUE,
-        password_hash TEXT NOT NULL,
-        last_login    TEXT
+        name           TEXT NOT NULL,
+        mobile         TEXT NOT NULL UNIQUE,
+        password_hash  TEXT NOT NULL,
+        otp_code       TEXT,
+        otp_expires_at TEXT,
+        is_verified    INTEGER NOT NULL DEFAULT 0,
+        last_login     TEXT
       )
     ''');
   }

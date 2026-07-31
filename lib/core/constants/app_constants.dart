@@ -14,13 +14,14 @@ class AppConstants {
   // ── Storage Keys ─────────────────────────────────────────────────────
   static const String keyDeviceId = 'device_id';
   static const String keyAuthToken = 'auth_token';
-  static const String keyUserId = 'user_id';       // stored as String UUID
+  static const String keyUserId = 'user_id'; // stored as String UUID
   static const String keyUserName = 'user_name';
-  static const String keyUserEmail = 'user_email';
+  static const String keyUserMobile = 'user_mobile';
 
   // ── Routes ───────────────────────────────────────────────────────────
   static const String routeSplash = '/';
   static const String routeLogin = '/login';
   static const String routeRegister = '/register';
+  static const String routeOtp = '/otp';
   static const String routeHome = '/home';
 }

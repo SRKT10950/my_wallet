@@ -3,6 +3,7 @@ import 'core/constants/app_constants.dart';
 import 'core/services/device_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/screens/otp_screen.dart';
 import 'features/auth/screens/register_screen.dart';
 import 'features/auth/screens/splash_screen.dart';
 import 'features/home/screens/home_screen.dart';
@@ -26,6 +27,18 @@ class MyWalletApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       initialRoute: AppConstants.routeSplash,
+      onGenerateRoute: (settings) {
+        if (settings.name == AppConstants.routeOtp) {
+          final args = settings.arguments as OtpScreenArgs?;
+          return MaterialPageRoute(
+            builder: (_) => OtpScreen(
+              mobile: args?.mobile ?? '',
+              initialDemoOtp: args?.demoOtp,
+            ),
+          );
+        }
+        return null;
+      },
       routes: {
         AppConstants.routeSplash: (_) => const SplashScreen(),
         AppConstants.routeLogin: (_) => const LoginScreen(),

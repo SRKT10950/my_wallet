@@ -3,14 +3,24 @@ import '../../../core/models/base_model.dart';
 /// Represents an authenticated user in My Wallet.
 ///
 /// Extends [BaseModel] to inherit all 13 standardized audit/control fields.
-/// User-specific fields are: [name], [email], [passwordHash], [lastLogin].
+/// User-specific fields are: [name], [mobile], [passwordHash], [isVerified],
+/// [otpCode], [otpExpiresAt], [lastLogin].
 class UserModel extends BaseModel {
   // ── User-specific fields ──────────────────────────────────────────
   final String name;
-  final String email;
+  final String mobile;
 
   /// SHA-256 hashed password — never store or log plain-text.
   final String passwordHash;
+
+  /// Whether the user has completed OTP verification.
+  final bool isVerified;
+
+  /// Active OTP code (null when verified).
+  final String? otpCode;
+
+  /// Expiration timestamp for the current OTP code.
+  final String? otpExpiresAt;
 
   /// ISO 8601 timestamp of the user's last successful login.
   final String? lastLogin;
@@ -32,8 +42,11 @@ class UserModel extends BaseModel {
     super.metadata,
     // User-specific fields
     required this.name,
-    required this.email,
+    required this.mobile,
     required this.passwordHash,
+    this.isVerified = false,
+    this.otpCode,
+    this.otpExpiresAt,
     this.lastLogin,
   });
 
@@ -58,8 +71,12 @@ class UserModel extends BaseModel {
       metadata: base['metadata'] as String?,
       // User-specific fields
       name: map['name']?.toString() ?? '',
-      email: map['email']?.toString() ?? '',
+      mobile: map['mobile']?.toString() ?? '',
       passwordHash: map['password_hash']?.toString() ?? '',
+      isVerified: (map['is_verified'] as num?)?.toInt() == 1 ||
+          map['is_verified'] == true,
+      otpCode: map['otp_code']?.toString(),
+      otpExpiresAt: map['otp_expires_at']?.toString(),
       lastLogin: map['last_login']?.toString(),
     );
   }
@@ -70,8 +87,11 @@ class UserModel extends BaseModel {
   Map<String, dynamic> toMap() => {
         ...baseToMap(),
         'name': name,
-        'email': email,
+        'mobile': mobile,
         'password_hash': passwordHash,
+        'is_verified': isVerified ? 1 : 0,
+        'otp_code': otpCode,
+        'otp_expires_at': otpExpiresAt,
         'last_login': lastLogin,
       };
 
@@ -87,5 +107,13 @@ class UserModel extends BaseModel {
       return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
     }
     return name.isNotEmpty ? name[0].toUpperCase() : '?';
+  }
+
+  /// Formatted mobile number for display (e.g. `+91 98765 43210`)
+  String get formattedMobile {
+    if (mobile.length == 10) {
+      return '+91 ${mobile.substring(0, 5)} ${mobile.substring(5)}';
+    }
+    return mobile;
   }
 }

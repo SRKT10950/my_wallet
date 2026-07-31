@@ -4,8 +4,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../services/auth_service.dart';
+import 'otp_screen.dart';
 
-/// Registration screen with full-name, email, password fields.
+/// Registration screen with full-name, mobile number, and password fields.
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
 
@@ -17,12 +18,12 @@ class _RegisterScreenState extends State<RegisterScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
+  final _mobileCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
   final _confirmCtrl = TextEditingController();
 
   final _nameFocus = FocusNode();
-  final _emailFocus = FocusNode();
+  final _mobileFocus = FocusNode();
   final _passwordFocus = FocusNode();
   final _confirmFocus = FocusNode();
 
@@ -54,11 +55,11 @@ class _RegisterScreenState extends State<RegisterScreen>
   void dispose() {
     _animController.dispose();
     _nameCtrl.dispose();
-    _emailCtrl.dispose();
+    _mobileCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
     _nameFocus.dispose();
-    _emailFocus.dispose();
+    _mobileFocus.dispose();
     _passwordFocus.dispose();
     _confirmFocus.dispose();
     super.dispose();
@@ -71,26 +72,25 @@ class _RegisterScreenState extends State<RegisterScreen>
       _errorMessage = null;
     });
 
+    final mobile = _mobileCtrl.text.trim();
     final result = await AuthService.instance.register(
       _nameCtrl.text.trim(),
-      _emailCtrl.text.trim(),
+      mobile,
       _passwordCtrl.text,
     );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    if (result.success) {
-      // Show success then navigate
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Account created! Welcome to My Wallet 🎉'),
-          backgroundColor: AppTheme.success.withValues(alpha: 0.9),
+    if (result.success && result.requiresOtp) {
+      // Navigate to OTP Verification Screen
+      Navigator.of(context).pushNamed(
+        AppConstants.routeOtp,
+        arguments: OtpScreenArgs(
+          mobile: mobile,
+          demoOtp: result.otpCode,
         ),
       );
-      await Future.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-      Navigator.of(context).pushReplacementNamed(AppConstants.routeHome);
     } else {
       setState(() => _errorMessage = result.error);
     }
@@ -240,7 +240,7 @@ class _RegisterScreenState extends State<RegisterScreen>
               focusNode: _nameFocus,
               textInputAction: TextInputAction.next,
               onFieldSubmitted: (_) =>
-                  FocusScope.of(context).requestFocus(_emailFocus),
+                  FocusScope.of(context).requestFocus(_mobileFocus),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Name is required';
                 if (v.trim().length < 2) return 'Enter a valid name';
@@ -250,23 +250,24 @@ class _RegisterScreenState extends State<RegisterScreen>
 
             const SizedBox(height: 16),
 
-            // Email
+            // Mobile Number
             AppTextField(
-              label: 'Email address',
-              hint: 'you@example.com',
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              prefixIcon: Icons.email_outlined,
-              focusNode: _emailFocus,
+              label: 'Mobile Number',
+              hint: '10-digit mobile number',
+              controller: _mobileCtrl,
+              keyboardType: TextInputType.phone,
+              prefixIcon: Icons.phone_outlined,
+              focusNode: _mobileFocus,
               textInputAction: TextInputAction.next,
               onFieldSubmitted: (_) =>
                   FocusScope.of(context).requestFocus(_passwordFocus),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Email is required';
-                final emailRegex =
-                    RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                if (!emailRegex.hasMatch(v.trim())) {
-                  return 'Enter a valid email address';
+                if (v == null || v.trim().isEmpty) {
+                  return 'Mobile number is required';
+                }
+                final mobileRegex = RegExp(r'^[0-9]{10}$');
+                if (!mobileRegex.hasMatch(v.trim())) {
+                  return 'Enter a valid 10-digit mobile number';
                 }
                 return null;
               },
@@ -334,11 +335,11 @@ class _RegisterScreenState extends State<RegisterScreen>
 
             const SizedBox(height: 12),
 
-            // Register button
+            // Register & Send OTP button
             GradientButton(
-              label: 'Create Account',
+              label: 'Continue & Send OTP',
               isLoading: _isLoading,
-              icon: Icons.rocket_launch_rounded,
+              icon: Icons.send_rounded,
               onPressed: _handleRegister,
             ),
           ],
