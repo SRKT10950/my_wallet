@@ -29,10 +29,41 @@ class DatabaseService {
 
   final _client = http.Client();
 
+  /// Safely interpolates `?` placeholders with properly escaped values.
+  /// This ensures compatible execution with the REST API backend without sending
+  /// `params` payloads which cause 500 server errors on the backend.
+  String _interpolateSql(String sql, List<dynamic>? params) {
+    if (params == null || params.isEmpty) return sql;
+
+    int paramIndex = 0;
+    final buffer = StringBuffer();
+
+    for (int i = 0; i < sql.length; i++) {
+      if (sql[i] == '?' && paramIndex < params.length) {
+        final val = params[paramIndex++];
+        if (val == null) {
+          buffer.write('NULL');
+        } else if (val is num) {
+          buffer.write(val.toString());
+        } else if (val is bool) {
+          buffer.write(val ? '1' : '0');
+        } else {
+          // Escape single quotes for SQL string literal
+          final escaped = val.toString().replaceAll("'", "''");
+          buffer.write("'$escaped'");
+        }
+      } else {
+        buffer.write(sql[i]);
+      }
+    }
+    return buffer.toString();
+  }
+
   /// Execute a raw SQL query against the My Wallet database.
   Future<DbResult> query(String sql, [List<dynamic>? params]) async {
     try {
       final device = DeviceService.instance;
+      final finalQuery = _interpolateSql(sql, params);
 
       final response = await _client.post(
         Uri.parse(AppConstants.dbBaseUrl),
@@ -43,8 +74,7 @@ class DatabaseService {
           'x-device-id': device.deviceId,
         },
         body: jsonEncode({
-          'query': sql,
-          if (params != null && params.isNotEmpty) 'params': params,
+          'query': finalQuery,
         }),
       );
 
