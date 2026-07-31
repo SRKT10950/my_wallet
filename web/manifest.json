@@ -1,13 +1,14 @@
 {
-    "name": "my_wallet",
-    "short_name": "my_wallet",
+    "name": "My Wallet",
+    "short_name": "My Wallet",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
-    "orientation": "portrait-primary",
+    "background_color": "#0D0D1A",
+    "theme_color": "#6C3DE8",
+    "description": "My Wallet — Smart personal finance & wallet management app.",
+    "orientation": "any",
     "prefer_related_applications": false,
+    "categories": ["finance", "productivity"],
     "icons": [
         {
             "src": "icons/Icon-192.png",
