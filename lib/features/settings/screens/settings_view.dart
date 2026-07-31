@@ -305,8 +305,10 @@ class _SettingsViewState extends State<SettingsView> {
                     trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryTeal) : null,
                     onTap: () async {
                       await _settingsService.setCurrency(curr);
+                      if (!mounted) return;
                       setState(() => _selectedCurrency = curr);
-                      if (mounted) Navigator.pop(ctx);
+                      if (!ctx.mounted) return;
+                      Navigator.of(ctx).pop();
                     },
                   ),
                 );
@@ -358,8 +360,10 @@ class _SettingsViewState extends State<SettingsView> {
                 if (!formKey.currentState!.validate()) return;
                 final val = double.parse(incomeCtrl.text.trim());
                 await _settingsService.setDefaultIncome(val);
+                if (!mounted) return;
                 setState(() => _defaultIncome = val);
-                if (mounted) Navigator.pop(ctx);
+                if (!ctx.mounted) return;
+                Navigator.of(ctx).pop();
               },
               child: const Text('Save Income'),
             ),
@@ -408,8 +412,10 @@ class _SettingsViewState extends State<SettingsView> {
                     trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryTeal) : null,
                     onTap: () async {
                       await _settingsService.setLanguage(lang);
+                      if (!mounted) return;
                       setState(() => _selectedLanguage = lang);
-                      if (mounted) Navigator.pop(ctx);
+                      if (!ctx.mounted) return;
+                      Navigator.of(ctx).pop();
                     },
                   ),
                 );
