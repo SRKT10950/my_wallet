@@ -22,6 +22,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _textOpacity;
   late Animation<Offset> _textSlide;
 
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
@@ -63,13 +65,14 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _initializeApp() async {
-    // Initialize schema and check session in parallel
-    await Future.wait([
-      DatabaseService.instance.initializeSchema(),
-      Future.delayed(const Duration(milliseconds: 2200)),
-    ]);
+    // Run schema init asynchronously in background
+    DatabaseService.instance.initializeSchema().catchError((_) {});
 
-    if (!mounted) return;
+    // Fixed splash screen animation delay
+    await Future.delayed(const Duration(milliseconds: 1600));
+
+    if (_navigated || !mounted) return;
+    _navigated = true;
 
     final isLoggedIn = await AuthService.instance.isLoggedIn();
     if (!mounted) return;

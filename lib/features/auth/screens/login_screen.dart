@@ -4,8 +4,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import '../../../shared/widgets/gradient_button.dart';
 import '../services/auth_service.dart';
+import 'otp_screen.dart';
 
-/// Login screen with glassmorphism card, email/password form.
+/// Login screen with glassmorphism card and mobile/password form.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -16,9 +17,9 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailCtrl = TextEditingController();
+  final _mobileCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
-  final _emailFocus = FocusNode();
+  final _mobileFocus = FocusNode();
   final _passwordFocus = FocusNode();
 
   bool _isLoading = false;
@@ -48,9 +49,9 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _animController.dispose();
-    _emailCtrl.dispose();
+    _mobileCtrl.dispose();
     _passwordCtrl.dispose();
-    _emailFocus.dispose();
+    _mobileFocus.dispose();
     _passwordFocus.dispose();
     super.dispose();
   }
@@ -63,7 +64,7 @@ class _LoginScreenState extends State<LoginScreen>
     });
 
     final result = await AuthService.instance.login(
-      _emailCtrl.text,
+      _mobileCtrl.text,
       _passwordCtrl.text,
     );
 
@@ -72,6 +73,14 @@ class _LoginScreenState extends State<LoginScreen>
 
     if (result.success) {
       Navigator.of(context).pushReplacementNamed(AppConstants.routeHome);
+    } else if (result.requiresOtp) {
+      Navigator.of(context).pushNamed(
+        AppConstants.routeOtp,
+        arguments: OtpScreenArgs(
+          mobile: _mobileCtrl.text.trim(),
+          demoOtp: result.otpCode,
+        ),
+      );
     } else {
       setState(() => _errorMessage = result.error);
     }
@@ -139,7 +148,6 @@ class _LoginScreenState extends State<LoginScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mini logo
         Container(
           width: 56,
           height: 56,
@@ -167,7 +175,7 @@ class _LoginScreenState extends State<LoginScreen>
         ),
         const SizedBox(height: 6),
         Text(
-          'Sign in to your My Wallet account',
+          'Sign in with your mobile number',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       ],
@@ -197,29 +205,29 @@ class _LoginScreenState extends State<LoginScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Error message
             if (_errorMessage != null) ...[
               _buildErrorBanner(),
               const SizedBox(height: 16),
             ],
 
-            // Email
+            // Mobile Number Field
             AppTextField(
-              label: 'Email address',
-              hint: 'you@example.com',
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
-              prefixIcon: Icons.email_outlined,
-              focusNode: _emailFocus,
+              label: 'Mobile Number',
+              hint: 'e.g. 7400700500',
+              controller: _mobileCtrl,
+              keyboardType: TextInputType.phone,
+              prefixIcon: Icons.phone_outlined,
+              focusNode: _mobileFocus,
               textInputAction: TextInputAction.next,
               onFieldSubmitted: (_) =>
                   FocusScope.of(context).requestFocus(_passwordFocus),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Email is required';
-                final emailRegex =
-                    RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                if (!emailRegex.hasMatch(v.trim())) {
-                  return 'Enter a valid email address';
+                if (v == null || v.trim().isEmpty) {
+                  return 'Mobile number is required';
+                }
+                final cleaned = v.replaceAll(RegExp(r'\D'), '');
+                if (cleaned.length < 10) {
+                  return 'Enter a valid 10-digit mobile number';
                 }
                 return null;
               },
@@ -227,10 +235,10 @@ class _LoginScreenState extends State<LoginScreen>
 
             const SizedBox(height: 16),
 
-            // Password
+            // Password / PIN Field
             AppTextField(
-              label: 'Password',
-              hint: '••••••••',
+              label: 'Password / PIN',
+              hint: 'Enter your password or PIN',
               controller: _passwordCtrl,
               obscureText: true,
               prefixIcon: Icons.lock_outline_rounded,
@@ -238,20 +246,18 @@ class _LoginScreenState extends State<LoginScreen>
               textInputAction: TextInputAction.done,
               onFieldSubmitted: (_) => _handleLogin(),
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Password is required';
-                if (v.length < 6) return 'Password must be at least 6 characters';
+                if (v == null || v.isEmpty) return 'Password or PIN is required';
+                if (v.length < 4) return 'Password/PIN must be at least 4 characters';
                 return null;
               },
             ),
 
             const SizedBox(height: 10),
 
-            // Forgot password (placeholder)
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: () {
-                  // TODO: Implement forgot password
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Coming soon!')),
                   );
@@ -260,14 +266,13 @@ class _LoginScreenState extends State<LoginScreen>
                   foregroundColor: AppTheme.primaryTeal,
                   padding: EdgeInsets.zero,
                 ),
-                child: const Text('Forgot password?',
+                child: const Text('Forgot password / PIN?',
                     style: TextStyle(fontSize: 13)),
               ),
             ),
 
             const SizedBox(height: 20),
 
-            // Login button
             GradientButton(
               label: 'Sign In',
               isLoading: _isLoading,
