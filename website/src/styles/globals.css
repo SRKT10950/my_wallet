@@ -1,0 +1,153 @@
+:root {
+  --bg-primary: #080914;
+  --bg-surface: #0E111F;
+  --bg-card: rgba(22, 25, 46, 0.75);
+  --border-card: rgba(0, 245, 212, 0.25);
+  --neon-cyan: #00F5D4;
+  --neon-indigo: #6366F1;
+  --amber-gold: #F59E0B;
+  --text-main: #FFFFFF;
+  --text-muted: #A0AEC0;
+  --font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-main);
+  font-family: var(--font-family);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphic Container */
+.glass-card {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-card);
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(0, 245, 212, 0.5);
+  box-shadow: 0 12px 35px rgba(0, 245, 212, 0.15);
+}
+
+/* Neon Glow Utilities */
+.neon-btn {
+  background: linear-gradient(135deg, #00F5D4 0%, #00C4A7 100%);
+  color: #000000;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 245, 212, 0.4);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.neon-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 25px rgba(0, 245, 212, 0.6);
+}
+
+.secondary-btn {
+  background: rgba(99, 102, 241, 0.15);
+  color: #A5B4FC;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.secondary-btn:hover {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: #6366F1;
+  color: #FFFFFF;
+}
+
+/* Badge Styles */
+.badge-category {
+  background: rgba(99, 102, 241, 0.2);
+  color: #A5B4FC;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.badge-price {
+  background: rgba(0, 245, 212, 0.15);
+  color: #00F5D4;
+  border: 1px solid rgba(0, 245, 212, 0.3);
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(8, 9, 20, 0.85);
+  backdrop-filter: blur(12px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal-content {
+  background: #0E111F;
+  border: 1.5px solid var(--neon-cyan);
+  border-radius: 24px;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #080914;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1E2238;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #00F5D4;
+}

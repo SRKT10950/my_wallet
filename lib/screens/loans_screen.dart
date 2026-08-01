@@ -8,7 +8,7 @@ import '../models/loan.dart';
 class LoansScreen extends StatelessWidget {
   const LoansScreen({super.key});
 
-  void _showLoanModal(BuildContext context, {Loan? loan}) {
+  static void _showLoanModal(BuildContext context, {Loan? loan}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -19,40 +19,41 @@ class LoansScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<FinanceProvider>(context);
-    final activeLoans = provider.loans.where((l) => l.status == 'Active').toList();
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Active Loans')),
-      body: activeLoans.isEmpty
-          ? const Center(child: Text('No active loans.', style: TextStyle(color: Colors.grey)))
-          : ListView.builder(
-              padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 88),
-              itemCount: activeLoans.length,
-              itemBuilder: (context, index) {
-                final loan = activeLoans[index];
-                return InkWell(
-                  onTap: () => _showLoanModal(context, loan: loan),
-                  borderRadius: BorderRadius.circular(20),
-                  child: _buildLoanCard(context, loan),
-                );
-              },
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showLoanModal(context),
-        icon: const Icon(Icons.add),
-        label: const Text('New Loan'),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Loans'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Active'),
+              Tab(text: 'Closed'),
+            ],
+            indicatorColor: Colors.orangeAccent,
+          ),
+        ),
+        body: const TabBarView(
+          children: [
+            LoanList(status: 'Active'),
+            LoanList(status: 'Closed'),
+          ],
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _showLoanModal(context),
+          icon: const Icon(Icons.add),
+          label: const Text('New Loan'),
+        ),
       ),
     );
   }
 
-  Widget _buildLoanCard(BuildContext context, Loan loan) {
+  static Widget buildLoanCard(BuildContext context, Loan loan) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
-          colors: [Theme.of(context).colorScheme.surface, Theme.of(context).colorScheme.surface.withOpacity(0.5)],
+          colors: [Theme.of(context).colorScheme.surface, Theme.of(context).colorScheme.surface.withValues(alpha: 0.5)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -106,7 +107,7 @@ class LoansScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  static Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 4.0),
       child: Row(
@@ -119,7 +120,7 @@ class LoansScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildColumnDetail(String label, double value, {Color color = Colors.white, bool isPercent = false, bool isMonths = false}) {
+  static Widget _buildColumnDetail(String label, double value, {Color color = Colors.white, bool isPercent = false, bool isMonths = false}) {
     String displayValue;
     if (isPercent) {
       displayValue = '${value.toStringAsFixed(2)}%';
@@ -136,6 +137,39 @@ class LoansScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Text(displayValue, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
       ],
+    );
+  }
+}
+
+class LoanList extends StatelessWidget {
+  final String status;
+  const LoanList({super.key, required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = Provider.of<FinanceProvider>(context);
+    final filteredLoans = provider.loans.where((l) => l.status == status).toList();
+
+    if (filteredLoans.isEmpty) {
+      return Center(
+        child: Text(
+          status == 'Active' ? 'No active loans.' : 'No closed loans.',
+          style: const TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 16, left: 16, right: 16, bottom: 88),
+      itemCount: filteredLoans.length,
+      itemBuilder: (context, index) {
+        final loan = filteredLoans[index];
+        return InkWell(
+          onTap: () => LoansScreen._showLoanModal(context, loan: loan),
+          borderRadius: BorderRadius.circular(20),
+          child: LoansScreen.buildLoanCard(context, loan),
+        );
+      },
     );
   }
 }
@@ -272,15 +306,47 @@ class _AddLoanSheetState extends State<AddLoanSheet> {
               TextFormField(
                 controller: _loanPrincipalController,
                 decoration: const InputDecoration(labelText: 'Principal Amount', border: OutlineInputBorder()),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.isEmpty ? 'Required' : null,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  final amt = double.tryParse(v);
+                  if (amt == null) return 'Must be a valid number';
+                  if (amt <= 0) return 'Must be greater than 0';
+                  return null;
+                },
               ),
               const SizedBox(height: 10),
               Row(
                 children: [
-                  Expanded(child: TextFormField(controller: _loanTenureController, decoration: const InputDecoration(labelText: 'Tenure (Months)', border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null)),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _loanTenureController,
+                      decoration: const InputDecoration(labelText: 'Tenure (Months)', border: OutlineInputBorder()),
+                      keyboardType: TextInputType.number,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final tVal = int.tryParse(v);
+                        if (tVal == null) return 'Must be a whole number';
+                        if (tVal <= 0) return 'Must be greater than 0';
+                        return null;
+                      },
+                    ),
+                  ),
                   const SizedBox(width: 10),
-                  Expanded(child: TextFormField(controller: _loanEmiController, decoration: const InputDecoration(labelText: 'EMI Amount', border: OutlineInputBorder()), keyboardType: TextInputType.number, validator: (v) => v!.isEmpty ? 'Required' : null)),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _loanEmiController,
+                      decoration: const InputDecoration(labelText: 'EMI Amount', border: OutlineInputBorder()),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final emiVal = double.tryParse(v);
+                        if (emiVal == null) return 'Must be a valid number';
+                        if (emiVal <= 0) return 'Must be greater than 0';
+                        return null;
+                      },
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 20),

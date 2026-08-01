@@ -26,8 +26,8 @@ class OdTransactionsScreen extends StatelessWidget {
     final transactions = provider.odTransactions
         .where((t) => t.odAccountId == account.id)
         .toList()
-        .reversed
-        .toList();
+      ..sort((a, b) => DateTime.parse(a.date).compareTo(DateTime.parse(b.date)));
+    final displayTransactions = transactions.reversed.toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -42,19 +42,19 @@ class OdTransactionsScreen extends StatelessWidget {
       ),
       body: Container(
         color: const Color(0xFF1A1A2E),
-        child: transactions.isEmpty
+        child: displayTransactions.isEmpty
             ? const Center(child: Text('No transactions yet.', style: TextStyle(color: Colors.grey)))
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
-                itemCount: transactions.length,
+                itemCount: displayTransactions.length,
                 itemBuilder: (context, index) {
-                  final tx = transactions[index];
+                  final tx = displayTransactions[index];
                   final isDebit = tx.type == 'Debit';
 
-                  // Calculate balance after this transaction
+                  // Calculate balance after this transaction based on chronological sorted order
+                  final sortedIndex = transactions.indexOf(tx);
                   double balanceAfter = 0.0;
-                  // We need to sum all transactions up to this one (since list is reversed, it's index to end)
-                  for (int i = transactions.length - 1; i >= index; i--) {
+                  for (int i = 0; i <= sortedIndex; i++) {
                     if (transactions[i].type == 'Debit') {
                       balanceAfter += transactions[i].amount;
                     } else {
@@ -69,8 +69,9 @@ class OdTransactionsScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: Container(
                       padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.05),
+                        color: Colors.white.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.white10),
                       ),
@@ -82,7 +83,7 @@ class OdTransactionsScreen extends StatelessWidget {
                               Row(
                                 children: [
                                   CircleAvatar(
-                                    backgroundColor: isDebit ? Colors.redAccent.withOpacity(0.1) : Colors.greenAccent.withOpacity(0.1),
+                                    backgroundColor: isDebit ? Colors.redAccent.withValues(alpha: 0.1) : Colors.greenAccent.withValues(alpha: 0.1),
                                     child: Icon(
                                       isDebit ? Icons.arrow_outward : Icons.arrow_downward,
                                       color: isDebit ? Colors.redAccent : Colors.greenAccent,
@@ -249,15 +250,21 @@ class _AddOdTransactionSheetState extends State<AddOdTransactionSheet> {
             TextFormField(
               controller: _amountController,
               style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               textAlign: TextAlign.center,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 hintText: '₹0',
-                hintStyle: const TextStyle(color: Colors.white24),
+                hintStyle: TextStyle(color: Colors.white24),
                 enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
                 focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.cyanAccent)),
               ),
-              validator: (v) => v!.isEmpty ? 'Required' : null,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                final amt = double.tryParse(v);
+                if (amt == null) return 'Must be a valid number';
+                if (amt <= 0) return 'Must be greater than 0';
+                return null;
+              },
             ),
             const SizedBox(height: 24),
             

@@ -85,7 +85,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
                                       isOverBudget ? 'Over Budget' : 'Under Budget',
                                       style: TextStyle(color: isOverBudget ? Colors.redAccent : Colors.greenAccent, fontWeight: FontWeight.bold),
                                     ),
-                                    backgroundColor: (isOverBudget ? Colors.redAccent : Colors.greenAccent).withOpacity(0.1),
+                                    backgroundColor: (isOverBudget ? Colors.redAccent : Colors.greenAccent).withValues(alpha: 0.1),
                                     side: BorderSide.none,
                                   ),
                                 ],
@@ -94,9 +94,9 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  _buildStatColumn('Planned', cat.plannedAmount, Colors.white70),
-                                  _buildStatColumn('Actual', actual, Colors.white),
-                                  _buildStatColumn('Variance', variance.abs(), isOverBudget ? Colors.redAccent : Colors.greenAccent),
+                                  _buildStatColumn('Planned', cat.plannedAmount, Colors.white70, provider.defaultCurrency),
+                                  _buildStatColumn('Actual', actual, Colors.white, provider.defaultCurrency),
+                                  _buildStatColumn('Variance', variance.abs(), isOverBudget ? Colors.redAccent : Colors.greenAccent, provider.defaultCurrency),
                                 ],
                               ),
                               const SizedBox(height: 16),
@@ -119,13 +119,13 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
     );
   }
 
-  Widget _buildStatColumn(String label, double amount, Color color) {
+  Widget _buildStatColumn(String label, double amount, Color color, String symbol) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
         const SizedBox(height: 4),
-        Text('₹${amount.toStringAsFixed(0)}', style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text('$symbol${amount.toStringAsFixed(0)}', style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -134,7 +134,7 @@ class _ExpenseTrackerScreenState extends State<ExpenseTrackerScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: Colors.white.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),

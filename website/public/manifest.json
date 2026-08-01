@@ -1,0 +1,47 @@
+{
+  "short_name": "MyWallet 2.0",
+  "name": "My Wallet Version 2.0 - Cyber Financial Platform & Product Master",
+  "icons": [
+    {
+      "src": "/icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "background_color": "#080914",
+  "theme_color": "#00F5D4",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "utilities", "productivity", "shopping"],
+  "description": "My Wallet 2.0 - Ultra-fast, secure personal finance, expense tracking & product master manager with Google Web Search.",
+  "shortcuts": [
+    {
+      "name": "Product Master",
+      "short_name": "Products",
+      "description": "Open Product Catalog & Google Search",
+      "url": "/?tab=products"
+    },
+    {
+      "name": "Log Expense",
+      "short_name": "Expense",
+      "description": "Add new expense transaction",
+      "url": "/?tab=expenses"
+    },
+    {
+      "name": "Asset Portfolio",
+      "short_name": "Portfolio",
+      "description": "View investments & net worth",
+      "url": "/?tab=assets"
+    }
+  ]
+}

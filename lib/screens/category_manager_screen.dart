@@ -109,8 +109,9 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       final provider = Provider.of<FinanceProvider>(context, listen: false);
+      final int categoryId = widget.category?.id ?? DateTime.now().millisecondsSinceEpoch;
       final newCat = Category(
-        id: widget.category?.id,
+        id: categoryId,
         name: _nameController.text,
         plannedAmount: double.parse(_planController.text),
       );
@@ -124,7 +125,7 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
       // Also update the budget for the current month to ensure it carries forward correctly
       final now = DateTime.now();
       provider.updateCategoryBudget(
-        widget.category?.id ?? newCat.id!, 
+        categoryId, 
         now.month, 
         now.year, 
         newCat.plannedAmount
@@ -165,8 +166,14 @@ class _CategoryFormSheetState extends State<CategoryFormSheet> {
             TextFormField(
               controller: _planController,
               decoration: const InputDecoration(labelText: 'Planned Amount', border: OutlineInputBorder()),
-              keyboardType: TextInputType.number,
-              validator: (v) => v!.isEmpty ? 'Required' : null,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Required';
+                final amt = double.tryParse(v);
+                if (amt == null) return 'Must be a valid number';
+                if (amt < 0) return 'Cannot be negative';
+                return null;
+              },
             ),
             const SizedBox(height: 20),
             SizedBox(

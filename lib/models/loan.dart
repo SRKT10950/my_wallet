@@ -13,6 +13,7 @@ class Loan {
   final double emi;
   final int tenurePending;
   final String status;
+  final bool deleted;
 
   Loan({
     this.id,
@@ -29,6 +30,7 @@ class Loan {
     required this.emi,
     required this.tenurePending,
     required this.status,
+    this.deleted = false,
   });
 
   Map<String, dynamic> toMap() {
@@ -47,25 +49,64 @@ class Loan {
       'emi': emi,
       'tenurePending': tenurePending,
       'status': status,
+      'deleted': deleted ? 1 : 0,
     };
   }
 
   factory Loan.fromMap(Map<String, dynamic> map) {
     return Loan(
-      id: map['id'],
+      id: map['id'] is int ? map['id'] : int.tryParse(map['id']?.toString() ?? ''),
       lender: map['lender'],
       startDate: map['startDate'],
       endDate: map['endDate'],
-      tenure: map['tenure'],
-      roi: map['roi'],
-      principal: map['principal'],
-      interest: map['interest'],
-      total: map['total'],
-      paid: map['paid'],
-      balance: map['balance'],
-      emi: map['emi'],
-      tenurePending: map['tenurePending'],
+      tenure: (map['tenure'] ?? 0) is int ? map['tenure'] : (int.tryParse(map['tenure']?.toString() ?? '') ?? 0),
+      roi: (map['roi'] ?? 0.0).toDouble(),
+      principal: (map['principal'] ?? 0.0).toDouble(),
+      interest: (map['interest'] ?? 0.0).toDouble(),
+      total: (map['total'] ?? 0.0).toDouble(),
+      paid: (map['paid'] ?? 0.0).toDouble(),
+      balance: (map['balance'] ?? 0.0).toDouble(),
+      emi: (map['emi'] ?? 0.0).toDouble(),
+      tenurePending: (map['tenurePending'] ?? 0) is int ? map['tenurePending'] : (int.tryParse(map['tenurePending']?.toString() ?? '') ?? 0),
       status: map['status'],
+      deleted: map['deleted'] == 1 || map['deleted'] == true || map['deleted'] == 'true',
+    );
+  }
+
+  Loan copyWith({
+    int? id,
+    String? lender,
+    String? startDate,
+    String? endDate,
+    int? tenure,
+    double? roi,
+    double? principal,
+    double? interest,
+    double? total,
+    double? paid,
+    double? balance,
+    double? emi,
+    int? tenurePending,
+    String? status,
+    bool? deleted,
+  }) {
+    return Loan(
+      id: id ?? this.id,
+      lender: lender ?? this.lender,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
+      tenure: tenure ?? this.tenure,
+      roi: roi ?? this.roi,
+      principal: principal ?? this.principal,
+      interest: interest ?? this.interest,
+      total: total ?? this.total,
+      paid: paid ?? this.paid,
+      balance: balance ?? this.balance,
+      emi: emi ?? this.emi,
+      tenurePending: tenurePending ?? this.tenurePending,
+      status: status ?? this.status,
+      deleted: deleted ?? this.deleted,
     );
   }
 }
+

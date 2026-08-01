@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Wallet - Premium Wealth Manager</title>
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode">
+    <!-- Auth Container -->
+    <div id="auth-container" class="auth-wrapper">
+        <div class="auth-card glass">
+            <div class="auth-header">
+                <div class="logo">
+                    <span class="logo-icon">💰</span>
+                    <h2>My Wallet</h2>
+                </div>
+                <p id="auth-subtitle">Premium Expense, Asset & Dues Manager</p>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form">
+                <div class="form-group">
+                    <label for="login-mobile">Mobile Number</label>
+                    <input type="tel" id="login-mobile" placeholder="Enter mobile number" required pattern="[0-9]{10,15}">
+                </div>
+                <div class="form-group">
+                    <label for="login-pin">Security PIN</label>
+                    <input type="password" id="login-pin" placeholder="Enter PIN" required minlength="4" maxlength="10">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Log In</button>
+                <p class="auth-toggle">Don't have an account? <a href="#" id="go-to-register">Register here</a></p>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form hidden">
+                <div class="form-group">
+                    <label for="register-name">Full Name</label>
+                    <input type="text" id="register-name" placeholder="Enter your name" required>
+                </div>
+                <div class="form-group">
+                    <label for="register-mobile">Mobile Number</label>
+                    <input type="tel" id="register-mobile" placeholder="Enter mobile number" required pattern="[0-9]{10,15}">
+                </div>
+                <div class="form-group">
+                    <label for="register-pin">Set Security PIN</label>
+                    <input type="password" id="register-pin" placeholder="Enter PIN (numbers/letters)" required minlength="4" maxlength="10">
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Create Account</button>
+                <p class="auth-toggle">Already have an account? <a href="#" id="go-to-login">Log in here</a></p>
+            </form>
+            <div id="auth-message" class="message-box hidden"></div>
+        </div>
+    </div>
+
+    <!-- Main Application Wrapper -->
+    <div id="app-container" class="app-wrapper hidden">
+        <!-- Sidebar Navigation (Desktop & Laptop) -->
+        <aside class="sidebar glass">
+            <div class="sidebar-header">
+                <span class="logo-icon">💰</span>
+                <span class="logo-text">My Wallet</span>
+            </div>
+            <nav class="sidebar-menu">
+                <a href="#dashboard" class="menu-item active" data-tab="dashboard">
+                    <span class="menu-icon">📊</span>
+                    <span class="menu-text">Dashboard</span>
+                </a>
+                <a href="#transactions" class="menu-item" data-tab="transactions">
+                    <span class="menu-icon">💸</span>
+                    <span class="menu-text">Transactions</span>
+                </a>
+                <a href="#lend-borrow" class="menu-item" data-tab="lend-borrow">
+                    <span class="menu-icon">🤝</span>
+                    <span class="menu-text">Lend & Borrow</span>
+                </a>
+                <a href="#loans" class="menu-item" data-tab="loans">
+                    <span class="menu-icon">🏦</span>
+                    <span class="menu-text">Loans</span>
+                </a>
+                <a href="#petrol" class="menu-item" data-tab="petrol">
+                    <span class="menu-icon">⛽</span>
+                    <span class="menu-text">Petrol Log</span>
+                </a>
+                <a href="#investments" class="menu-item" data-tab="investments">
+                    <span class="menu-icon">📈</span>
+                    <span class="menu-text">Investments</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-profile">
+                    <div class="user-avatar">👤</div>
+                    <div class="user-info">
+                        <span id="user-display-name" class="user-name">User</span>
+                        <span id="user-display-mobile" class="user-role">Mobile</span>
+                    </div>
+                </div>
+                <button id="logout-btn" class="btn-logout" title="Log Out">➡️ Logout</button>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Header -->
+            <header class="main-header glass">
+                <div class="header-left">
+                    <h1 id="page-title">Dashboard</h1>
+                </div>
+                <div class="header-right">
+                    <span id="sync-status" class="sync-indicator success">● Synced</span>
+                    <button id="sync-now-btn" class="btn btn-secondary-sm" title="Force Database Sync">🔄 Sync</button>
+                </div>
+            </header>
+
+            <!-- Page Panels -->
+            <div class="panels-container">
+                
+                <!-- 1. DASHBOARD PANEL -->
+                <section id="panel-dashboard" class="tab-panel active">
+                    <!-- Summary Metrics Grid -->
+                    <div class="metrics-grid">
+                        <div class="metric-card glass gradient-border">
+                            <span class="metric-title">Net Worth</span>
+                            <h2 id="val-networth" class="metric-value">₹0</h2>
+                            <span class="metric-desc">Available Liquidity & Assets</span>
+                        </div>
+                        <div class="metric-card glass">
+                            <span class="metric-title">To Receive (Lent)</span>
+                            <h2 id="val-toreceive" class="metric-value text-green">₹0</h2>
+                            <span class="metric-desc">Lend dues from contacts</span>
+                        </div>
+                        <div class="metric-card glass">
+                            <span class="metric-title">To Pay (Borrowed)</span>
+                            <h2 id="val-topay" class="metric-value text-red">₹0</h2>
+                            <span class="metric-desc">Dues and pending borrowings</span>
+                        </div>
+                        <div class="metric-card glass">
+                            <span class="metric-title">Investments Value</span>
+                            <h2 id="val-investments" class="metric-value text-violet">₹0</h2>
+                            <span class="metric-desc">Mutual funds & portfolios</span>
+                        </div>
+                    </div>
+
+                    <!-- Flow Analysis -->
+                    <div class="dashboard-details-grid">
+                        <!-- Quick Add Expense/Income -->
+                        <div class="card glass">
+                            <h3>Quick Add Transaction</h3>
+                            <form id="quick-add-form" class="panel-form">
+                                <div class="form-row">
+                                    <div class="form-group flex-2">
+                                        <label for="qa-desc">Item / Service Description</label>
+                                        <input type="text" id="qa-desc" placeholder="e.g. Uber ride, Grocery shopping" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="qa-cost">Cost (₹)</label>
+                                        <input type="number" id="qa-cost" min="0" step="any" placeholder="0.00" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="qa-category">Category</label>
+                                        <select id="qa-category" required>
+                                            <!-- Populated dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="qa-paid">Paid Amount (₹)</label>
+                                        <input type="number" id="qa-paid" min="0" step="any" placeholder="Same as cost">
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="qa-date">Date</label>
+                                        <input type="date" id="qa-date" required>
+                                    </div>
+                                    <div class="form-group flex-1 check-group">
+                                        <input type="checkbox" id="qa-cleared" checked>
+                                        <label for="qa-cleared">Cleared Payment</label>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">+ Add Transaction</button>
+                            </form>
+                        </div>
+
+                        <!-- Recent Actions / Dues Summaries -->
+                        <div class="card glass">
+                            <h3>Recent Activity</h3>
+                            <div class="activity-timeline" id="recent-transactions-list">
+                                <!-- Populated dynamically -->
+                                <p class="placeholder-text">No transactions logged yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. TRANSACTIONS PANEL -->
+                <section id="panel-transactions" class="tab-panel">
+                    <div class="action-bar">
+                        <div class="search-filters">
+                            <input type="text" id="tx-search" placeholder="Search item, category..." class="search-input">
+                            <select id="tx-filter-category" class="filter-select">
+                                <option value="all">All Categories</option>
+                            </select>
+                            <input type="month" id="tx-filter-month" class="filter-select">
+                        </div>
+                        <button id="btn-add-tx" class="btn btn-primary">+ New Transaction</button>
+                    </div>
+
+                    <!-- Category Budgets / Stats -->
+                    <div class="card glass margin-bottom">
+                        <h3>Category Spend & Budgets</h3>
+                        <div id="category-budgets-grid" class="budgets-container">
+                            <!-- Budget meters populated dynamically -->
+                            <p class="placeholder-text">Configure categories to set monthly budgets.</p>
+                        </div>
+                        <div class="budget-setup-block">
+                            <h4>Manage Categories & Budgets</h4>
+                            <form id="budget-set-form" class="inline-form">
+                                <input type="text" id="budget-cat-name" placeholder="Category Name" required>
+                                <input type="number" id="budget-amount" placeholder="Monthly Budget (₹)" min="0" required>
+                                <button type="submit" class="btn btn-secondary">+ Create/Update</button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Transactions Table -->
+                    <div class="card glass no-padding overflow-x">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Item / Service</th>
+                                    <th>Category</th>
+                                    <th>Cost</th>
+                                    <th>Paid</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tx-table-body">
+                                <!-- Populated dynamically -->
+                                <tr>
+                                    <td colspan="7" class="text-center placeholder-text">No transactions fit your filter settings.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 3. LEND & BORROW PANEL -->
+                <section id="panel-lend-borrow" class="tab-panel">
+                    <div class="borrow-grid">
+                        
+                        <!-- 3a. Record Lend/Borrow -->
+                        <div class="card glass">
+                            <h3>Log Lend or Borrow Record</h3>
+                            <form id="lend-borrow-form" class="panel-form">
+                                <div class="form-group">
+                                    <label for="lb-name">Contact Person</label>
+                                    <input type="text" id="lb-name" placeholder="e.g. Ramesh, Priya" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="lb-type">Transaction Type</label>
+                                        <select id="lb-type" required>
+                                            <option value="Lend">Lend (Give Cash)</option>
+                                            <option value="Borrow">Borrow (Take Cash)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="lb-amount">Principal Amount (₹)</label>
+                                        <input type="number" id="lb-amount" min="1" placeholder="0" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="lb-date">Date Given/Taken</label>
+                                        <input type="date" id="lb-date" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="lb-tenure">Tenure (Days)</label>
+                                        <input type="number" id="lb-tenure" min="1" placeholder="30" required value="30">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Create Record</button>
+                            </form>
+                        </div>
+
+                        <!-- 3b. Smart FIFO Repayments Allocator -->
+                        <div class="card glass gradient-border-orange">
+                            <div class="card-header-icon flex-row">
+                                <span class="badge badge-orange">⚡ Smart Engine</span>
+                                <h3>FIFO Repayments Allocator</h3>
+                            </div>
+                            <p class="section-desc">Applies contact repayment to their oldest outstanding dues first chronologically. Excess is stored as credit.</p>
+                            <form id="repay-fifo-form" class="panel-form">
+                                <div class="form-group">
+                                    <label for="fifo-name">Select/Enter Contact</label>
+                                    <input type="text" id="fifo-name" placeholder="Enter contact name exactly" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="fifo-amount">Repayment Received/Paid (₹)</label>
+                                        <input type="number" id="fifo-amount" min="1" placeholder="0" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="fifo-method">Payment Method</label>
+                                        <select id="fifo-method" required>
+                                            <option value="Cash">Cash</option>
+                                            <option value="UPI">UPI Transfer</option>
+                                            <option value="Bank">Net Banking</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label for="fifo-date">Repayment Date</label>
+                                    <input type="date" id="fifo-date" required>
+                                </div>
+                                <button type="submit" class="btn btn-warning btn-block">Allocate Repayment (FIFO)</button>
+                            </form>
+
+                            <!-- Allocation Log Output -->
+                            <div id="fifo-logs-container" class="fifo-logs hidden">
+                                <h4>Allocation Trace</h4>
+                                <div id="fifo-trace" class="trace-box"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dues & Repayments lists -->
+                    <div class="dashboard-details-grid margin-top">
+                        <!-- Lend & Borrow Ledger -->
+                        <div class="card glass">
+                            <h3>Lend & Borrow Ledger</h3>
+                            <div class="tab-scroller">
+                                <table class="data-table small">
+                                    <thead>
+                                        <tr>
+                                            <th>Contact</th>
+                                            <th>Type</th>
+                                            <th>Principal</th>
+                                            <th>Settled</th>
+                                            <th>Balance</th>
+                                            <th>Due Date</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="lb-table-body">
+                                        <tr>
+                                            <td colspan="7" class="text-center placeholder-text">No active records logged.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Repayments History -->
+                        <div class="card glass">
+                            <h3>Repayments Log</h3>
+                            <div class="tab-scroller">
+                                <table class="data-table small">
+                                    <thead>
+                                        <tr>
+                                            <th>Contact</th>
+                                            <th>Date</th>
+                                            <th>Amount</th>
+                                            <th>Method</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="repayments-table-body">
+                                        <tr>
+                                            <td colspan="4" class="text-center placeholder-text">No repayments recorded.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. LOANS PANEL -->
+                <section id="panel-loans" class="tab-panel">
+                    <div class="borrow-grid">
+                        <!-- Add Bank Loan -->
+                        <div class="card glass">
+                            <h3>Track Bank Loan</h3>
+                            <form id="loan-add-form" class="panel-form">
+                                <div class="form-group">
+                                    <label for="loan-lender">Lender Bank Name</label>
+                                    <input type="text" id="loan-lender" placeholder="e.g. HDFC Bank, SBI" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="loan-principal">Principal (₹)</label>
+                                        <input type="number" id="loan-principal" min="1" placeholder="0" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="loan-roi">Interest Rate (% p.a.)</label>
+                                        <input type="number" id="loan-roi" step="any" min="0" placeholder="e.g. 8.5" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="loan-tenure">Tenure (Months)</label>
+                                        <input type="number" id="loan-tenure" min="1" placeholder="e.g. 12" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="loan-start-date">Start Date</label>
+                                        <input type="date" id="loan-start-date" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Add Bank Loan</button>
+                            </form>
+                        </div>
+
+                        <!-- Loan EMI Calculator -->
+                        <div class="card glass">
+                            <h3>EMI Calculator</h3>
+                            <div class="calculator-box">
+                                <div class="form-group">
+                                    <label for="calc-principal">Principal Amount (₹)</label>
+                                    <input type="number" id="calc-principal" value="100000">
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="calc-roi">Rate (% p.a.)</label>
+                                        <input type="number" id="calc-roi" step="any" value="9">
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="calc-tenure">Tenure (Months)</label>
+                                        <input type="number" id="calc-tenure" value="12">
+                                    </div>
+                                </div>
+                                <div class="calc-results glass">
+                                    <div class="calc-res-row">
+                                        <span>Monthly EMI:</span>
+                                        <strong id="calc-emi-val">₹8,745</strong>
+                                    </div>
+                                    <div class="calc-res-row">
+                                        <span>Total Interest:</span>
+                                        <span id="calc-interest-val">₹4,942</span>
+                                    </div>
+                                    <div class="calc-res-row">
+                                        <span>Total Payback:</span>
+                                        <span id="calc-payback-val">₹1,04,942</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loans Ledger -->
+                    <div class="card glass margin-top">
+                        <h3>Bank Loans List</h3>
+                        <div class="overflow-x">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Bank / Lender</th>
+                                        <th>Principal</th>
+                                        <th>ROI</th>
+                                        <th>EMI (Monthly)</th>
+                                        <th>Total Debt</th>
+                                        <th>Paid</th>
+                                        <th>Pending Tenure</th>
+                                        <th>Outstanding</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="loans-table-body">
+                                    <tr>
+                                        <td colspan="9" class="text-center placeholder-text">No bank loans configured.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. PETROL LOG PANEL -->
+                <section id="panel-petrol" class="tab-panel">
+                    <div class="borrow-grid">
+                        
+                        <!-- 5a. Log Refill -->
+                        <div class="card glass">
+                            <h3>Log Fuel Refill</h3>
+                            <p class="section-desc">Record refills. Enter consecutive "Full Tank" records to calculate exact mileage.</p>
+                            <form id="petrol-add-form" class="panel-form">
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="petrol-date">Refill Date</label>
+                                        <input type="date" id="petrol-date" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="petrol-odometer">Odometer (km)</label>
+                                        <input type="number" id="petrol-odometer" min="0" step="any" placeholder="Current km reading" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="petrol-fuel">Fuel Quantity (Liters)</label>
+                                        <input type="number" id="petrol-fuel" step="any" min="0.01" placeholder="e.g. 35.5" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="petrol-price">Price / Liter (₹)</label>
+                                        <input type="number" id="petrol-price" step="any" min="0.01" placeholder="e.g. 104.50" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1 check-group">
+                                        <input type="checkbox" id="petrol-fulltank" checked>
+                                        <label for="petrol-fulltank">Full Tank Refill</label>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="petrol-notes">Notes</label>
+                                        <input type="text" id="petrol-notes" placeholder="e.g. highway trip">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Add Fuel Log</button>
+                            </form>
+                        </div>
+
+                        <!-- 5b. Mileage Analytics -->
+                        <div class="card glass">
+                            <h3>Vehicle Mileage Analysis</h3>
+                            <div class="petrol-summary-box">
+                                <div class="stats-large">
+                                    <div class="stat-big">
+                                        <strong id="petrol-avg-mileage">0.00</strong>
+                                        <span>Avg Mileage (km/L)</span>
+                                    </div>
+                                    <div class="stat-big">
+                                        <strong id="petrol-cost-per-km">₹0.00</strong>
+                                        <span>Cost per km</span>
+                                    </div>
+                                </div>
+                                <div class="vehicle-config-inline">
+                                    <h4>Vehicle Parameters</h4>
+                                    <div class="form-row">
+                                        <div class="form-group flex-2">
+                                            <label for="veh-name">Vehicle Name</label>
+                                            <input type="text" id="veh-name" value="Honda City" placeholder="e.g. Honda City">
+                                        </div>
+                                        <div class="form-group flex-1">
+                                            <label for="veh-init-odo">Initial Odo</label>
+                                            <input type="number" id="veh-init-odo" value="0" placeholder="0">
+                                        </div>
+                                    </div>
+                                    <button id="veh-save-btn" class="btn btn-secondary-sm">Save vehicle params</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Logs Table -->
+                    <div class="card glass margin-top">
+                        <h3>Refueling History</h3>
+                        <div class="overflow-x">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Odometer</th>
+                                        <th>Distance Run</th>
+                                        <th>Fuel Filled</th>
+                                        <th>Price/L</th>
+                                        <th>Total Cost</th>
+                                        <th>Tank Type</th>
+                                        <th>Calculated Mileage</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="petrol-table-body">
+                                    <tr>
+                                        <td colspan="9" class="text-center placeholder-text">No refueling logs added yet.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 6. INVESTMENTS PANEL -->
+                <section id="panel-investments" class="tab-panel">
+                    <div class="borrow-grid">
+                        
+                        <!-- Log Asset / Investment -->
+                        <div class="card glass">
+                            <h3>Log Asset or Mutual Fund</h3>
+                            <form id="invest-add-form" class="panel-form">
+                                <div class="form-group">
+                                    <label for="inv-name">Asset Name</label>
+                                    <input type="text" id="inv-name" placeholder="e.g. HDFC Nifty 50, Gold ETF" required>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="inv-type">Asset Type</label>
+                                        <select id="inv-type" required>
+                                            <option value="Mutual Fund">Mutual Fund</option>
+                                            <option value="Equity Stock">Equity Stock</option>
+                                            <option value="Gold">Gold</option>
+                                            <option value="Fixed Deposit">Fixed Deposit (FD)</option>
+                                            <option value="Real Estate">Real Estate</option>
+                                            <option value="Other">Other Assets</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="inv-amount">Amount Invested (₹)</label>
+                                        <input type="number" id="inv-amount" min="1" placeholder="0" required>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group flex-1">
+                                        <label for="inv-roi">Expected ROI (% p.a.)</label>
+                                        <input type="number" id="inv-roi" step="any" min="0" placeholder="e.g. 12" required>
+                                    </div>
+                                    <div class="form-group flex-1">
+                                        <label for="inv-start-date">Date Invested</label>
+                                        <input type="date" id="inv-start-date" required>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Record Asset</button>
+                            </form>
+                        </div>
+
+                        <!-- Investments Summary -->
+                        <div class="card glass">
+                            <h3>Portfolio Metrics</h3>
+                            <div class="investment-summary-box">
+                                <div class="portfolio-meter">
+                                    <div class="portfolio-val-card">
+                                        <span>Total Portfolio Investment:</span>
+                                        <strong id="port-total-invested">₹0</strong>
+                                    </div>
+                                </div>
+                                <div class="projections-block">
+                                    <h4>Compound Growth Projection</h4>
+                                    <p class="section-desc">Projects mutual fund value at the expected ROI over 1, 3, and 5 years.</p>
+                                    <div class="project-table glass">
+                                        <div class="project-row">
+                                            <span>Current:</span>
+                                            <strong id="proj-current">₹0</strong>
+                                        </div>
+                                        <div class="project-row">
+                                            <span>In 1 Year:</span>
+                                            <span id="proj-1yr">₹0</span>
+                                        </div>
+                                        <div class="project-row">
+                                            <span>In 3 Years:</span>
+                                            <span id="proj-3yr">₹0</span>
+                                        </div>
+                                        <div class="project-row">
+                                            <span>In 5 Years:</span>
+                                            <span id="proj-5yr">₹0</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Investments List -->
+                    <div class="card glass margin-top">
+                        <h3>Recorded Portfolio Assets</h3>
+                        <div class="overflow-x">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Asset Name</th>
+                                        <th>Type</th>
+                                        <th>Amount Invested</th>
+                                        <th>Expected ROI</th>
+                                        <th>Date Invested</th>
+                                        <th>Age (Days)</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="invest-table-body">
+                                    <tr>
+                                        <td colspan="7" class="text-center placeholder-text">No assets logged in your portfolio.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+                
+            </div>
+        </main>
+    </div>
+
+    <!-- Bottom Navigation Bar (Mobile View) -->
+    <nav class="bottom-nav glass hidden" id="mobile-nav">
+        <a href="#dashboard" class="bottom-nav-item active" data-tab="dashboard">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Home</span>
+        </a>
+        <a href="#transactions" class="bottom-nav-item" data-tab="transactions">
+            <span class="nav-icon">💸</span>
+            <span class="nav-label">Spend</span>
+        </a>
+        <a href="#lend-borrow" class="bottom-nav-item" data-tab="lend-borrow">
+            <span class="nav-icon">🤝</span>
+            <span class="nav-label">Dues</span>
+        </a>
+        <a href="#petrol" class="bottom-nav-item" data-tab="petrol">
+            <span class="nav-icon">⛽</span>
+            <span class="nav-label">Fuel</span>
+        </a>
+        <a href="#investments" class="bottom-nav-item" data-tab="investments">
+            <span class="nav-icon">📈</span>
+            <span class="nav-label">Assets</span>
+        </a>
+    </nav>
+
+    <!-- Global Modals -->
+    
+    <!-- New Transaction Modal (Manual creation trigger) -->
+    <div id="modal-tx" class="modal-overlay hidden">
+        <div class="modal-box glass">
+            <div class="modal-header">
+                <h3>New Transaction Details</h3>
+                <span class="modal-close" id="modal-tx-close">&times;</span>
+            </div>
+            <form id="modal-tx-form" class="panel-form">
+                <div class="form-group">
+                    <label for="mt-desc">Item / Service Description</label>
+                    <input type="text" id="mt-desc" placeholder="e.g. Grocery bill" required>
+                </div>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="mt-cost">Cost (₹)</label>
+                        <input type="number" id="mt-cost" step="any" min="0" required>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="mt-paid">Paid Amount (₹)</label>
+                        <input type="number" id="mt-paid" step="any" min="0">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="mt-category">Category</label>
+                        <select id="mt-category" required></select>
+                    </div>
+                    <div class="form-group flex-1">
+                        <label for="mt-date">Date</label>
+                        <input type="date" id="mt-date" required>
+                    </div>
+                </div>
+                <div class="form-group check-group">
+                    <input type="checkbox" id="mt-cleared" checked>
+                    <label for="mt-cleared">Mark transaction as cleared</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Add Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

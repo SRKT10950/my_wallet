@@ -4,61 +4,331 @@ import 'investments_screen.dart';
 import 'lend_borrow_screen.dart';
 import 'settings_screen.dart';
 import 'od_accounts_screen.dart';
-import '../services/db_sync_service.dart';
+import 'accounts_screen.dart';
+import 'scheduled_payments_screen.dart';
+import 'goals_screen.dart';
+import 'assets_screen.dart';
+import 'sms_parser_screen.dart';
+import 'splitwise_screen.dart';
+import 'calculators_screen.dart';
+import 'receipt_scanner_screen.dart';
+import 'fuel_log_screen.dart';
+import 'car_dashboard_screen.dart';
+import 'deleted_records_screen.dart';
+import 'contacts_screen.dart';
+import 'products_screen.dart';
 import '../providers/finance_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart' hide Category;
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<FinanceProvider>(context);
+    final curSymbol = provider.defaultCurrency;
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final int crossAxisCount = screenWidth >= 1024 ? 4 : (screenWidth >= 600 ? 3 : 2);
+    final double childAspectRatio = screenWidth >= 1024 ? 1.4 : (screenWidth >= 600 ? 1.3 : 1.25);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('More Modules')),
-      body: Column(
-        children: [
-          Expanded(
-            child: GridView.count(
-              padding: const EdgeInsets.all(16),
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.1,
-              children: [
-                _buildMenuCard(context, 'Loans', Icons.account_balance, Colors.orangeAccent, const LoansScreen()),
-                _buildMenuCard(context, 'Investments', Icons.trending_up, Colors.greenAccent, const InvestmentsScreen()),
-                _buildMenuCard(context, 'Lend & Borrow', Icons.compare_arrows, Colors.blueAccent, const LendBorrowScreen()),
-                _buildMenuCard(context, 'OD Accounts', Icons.account_balance_wallet, Colors.cyanAccent, const OdAccountsScreen()),
-                _buildMenuCard(context, 'Settings', Icons.settings, Colors.grey, const SettingsScreen()),
-              ],
-            ),
+      appBar: AppBar(
+        title: const Text(
+          'Menu & Controls',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24, letterSpacing: -0.5),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF080914), Color(0xFF0E111F)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          const UserProfileWidget(),
-          const SyncWidget(),
-        ],
+        ),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+
+                    // Financial Management Section
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0, bottom: 12, top: 12),
+                      child: Text(
+                        'FINANCIAL MANAGEMENT',
+                        style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                      ),
+                    ),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: childAspectRatio,
+                      children: [
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Loans',
+                          sub: '${provider.loans.where((l) => l.status == 'Active').length} Active',
+                          icon: Icons.account_balance,
+                          color: Colors.orangeAccent,
+                          destination: const LoansScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Investments',
+                          sub: 'Value: $curSymbol${provider.totalCurrentInvestments.toStringAsFixed(0)}',
+                          icon: Icons.trending_up,
+                          color: Colors.greenAccent,
+                          destination: const InvestmentsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Lend & Borrow',
+                          sub: 'Dues Tracker',
+                          icon: Icons.compare_arrows,
+                          color: Colors.blueAccent,
+                          destination: const LendBorrowScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'OD Accounts',
+                          sub: '${provider.odAccounts.length} Accounts',
+                          icon: Icons.account_balance_wallet,
+                          color: Colors.cyanAccent,
+                          destination: const OdAccountsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Contacts Directory',
+                          sub: '${provider.contacts.where((c) => c.active).length} Active Contacts',
+                          icon: Icons.contacts,
+                          color: Colors.tealAccent,
+                          destination: const ContactsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Product Catalog',
+                          sub: '${provider.products.where((p) => p.active).length} Active Items',
+                          icon: Icons.inventory_2,
+                          color: Colors.amberAccent,
+                          destination: const ProductsScreen(),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+
+                    // Accounts & Goals Section
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0, bottom: 12),
+                      child: Text(
+                        'ACCOUNTS & PLANNING',
+                        style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                      ),
+                    ),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: childAspectRatio,
+                      children: [
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Wallet Accounts',
+                          sub: '${provider.accounts.length} Wallets',
+                          icon: Icons.wallet_rounded,
+                          color: const Color(0xFF6366F1),
+                          destination: const AccountsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Savings Goals',
+                          sub: '${provider.goals.length} active goals',
+                          icon: Icons.track_changes_rounded,
+                          color: const Color(0xFF8B5CF6),
+                          destination: const GoalsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Scheduled Bills',
+                          sub: '${provider.scheduledPayments.length} scheduled',
+                          icon: Icons.event_note_rounded,
+                          color: Colors.tealAccent,
+                          destination: const ScheduledPaymentsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Deleted Records',
+                          sub: 'Trash & Recovery',
+                          icon: Icons.delete_sweep_rounded,
+                          color: Colors.redAccent,
+                          destination: const DeletedRecordsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'System Settings',
+                          sub: 'Configuration',
+                          icon: Icons.settings,
+                          color: Colors.grey,
+                          destination: const SettingsScreen(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Premium Tools Section
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0, bottom: 12),
+                      child: Text(
+                        'PREMIUM TOOLS & PORTFOLIO',
+                        style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.5),
+                      ),
+                    ),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: childAspectRatio,
+                      children: [
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Asset Portfolio',
+                          sub: '${provider.assets.length} Assets',
+                          icon: Icons.pie_chart_rounded,
+                          color: const Color(0xFF10B981),
+                          destination: const AssetsScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Group Splits',
+                          sub: '${provider.splitBills.length} Bills Split',
+                          icon: Icons.people_alt_rounded,
+                          color: const Color(0xFFF59E0B),
+                          destination: const SplitwiseScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Planning Tools',
+                          sub: 'FIRE & EMI',
+                          icon: Icons.calculate_rounded,
+                          color: const Color(0xFF3B82F6),
+                          destination: const CalculatorsScreen(),
+                        ),
+                         _buildMenuCard(
+                          context: context,
+                          title: 'SMS Inbox Parser',
+                          sub: 'Auto-parse bank SMS',
+                          icon: Icons.document_scanner_rounded,
+                          color: const Color(0xFFEC4899),
+                          destination: const SmsParserScreen(),
+                        ),
+                         _buildMenuCard(
+                          context: context,
+                          title: 'Receipt Scanner',
+                          sub: 'ML Kit OCR',
+                          icon: Icons.receipt_long_rounded,
+                          color: Colors.cyanAccent,
+                          destination: const ReceiptScannerScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Petrol Log',
+                          sub: 'Mileage & Expenses',
+                          icon: Icons.local_gas_station_rounded,
+                          color: Colors.orangeAccent,
+                          destination: const FuelLogScreen(),
+                        ),
+                        _buildMenuCard(
+                          context: context,
+                          title: 'Car Sync GPS',
+                          sub: 'Odometer & GPS Trips',
+                          icon: Icons.directions_car_rounded,
+                          color: const Color(0xFF10B981),
+                          destination: const CarDashboardScreen(),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const UserProfileWidget(),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildMenuCard(BuildContext context, String title, IconData icon, Color color, Widget destination) {
+  Widget _buildMenuCard({
+    required BuildContext context,
+    required String title,
+    required String sub,
+    required IconData icon,
+    required Color color,
+    required Widget destination,
+  }) {
     return InkWell(
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => destination)),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: Container(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
-          color: Theme.of(context).colorScheme.surface,
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 4))],
-          border: Border.all(color: color.withOpacity(0.3), width: 2),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 48, color: color),
-            const SizedBox(height: 16),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          borderRadius: BorderRadius.circular(24),
+          color: const Color(0xFF121422),
+          border: Border.all(color: color.withValues(alpha: 0.18), width: 1.5),
+          boxShadow: [
+            BoxShadow(
+              color: color.withValues(alpha: 0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 24, color: color),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    sub,
+                    style: const TextStyle(fontSize: 10, color: Colors.white54, fontWeight: FontWeight.bold),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -72,37 +342,60 @@ class UserProfileWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final provider = Provider.of<FinanceProvider>(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.03),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white10),
+        color: const Color(0xFF121422),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            backgroundColor: Colors.cyanAccent,
-            child: Icon(Icons.person, color: Colors.black),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.35)),
+            ),
+            child: const Icon(Icons.person, color: Color(0xFF6366F1), size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(provider.currentUserName ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(provider.currentUserId ?? '', style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text(
+                  provider.currentUserName ?? 'User',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  provider.currentUserId ?? 'Local User',
+                  style: const TextStyle(color: Colors.white30, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
               ],
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.redAccent),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+              foregroundColor: Colors.redAccent,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            icon: const Icon(Icons.logout, size: 16),
+            label: const Text('LOGOUT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900)),
             onPressed: () {
               showDialog(
                 context: context,
                 builder: (context) => AlertDialog(
+                  backgroundColor: const Color(0xFF121422),
                   title: const Text('Logout?'),
-                  content: const Text('This will clear local data and require you to login again to sync.'),
+                  content: const Text(
+                    'This will clear local storage and log you out. Please make sure you have pushed your sync data.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
                     TextButton(
@@ -123,164 +416,3 @@ class UserProfileWidget extends StatelessWidget {
   }
 }
 
-class SyncWidget extends StatefulWidget {
-  const SyncWidget({super.key});
-
-  @override
-  State<SyncWidget> createState() => _SyncWidgetState();
-}
-
-class _SyncWidgetState extends State<SyncWidget> {
-  bool _isLoading = false;
-
-  Future<void> _handleSync(bool isPush) async {
-    setState(() => _isLoading = true);
-    try {
-      final provider = Provider.of<FinanceProvider>(context, listen: false);
-      if (isPush) {
-        await DbSyncService.pushToDb(provider);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Successfully Pushed to Database!'), backgroundColor: Colors.green));
-      } else {
-        await DbSyncService.pullFromDb(provider);
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Successfully Pulled from Database!'), backgroundColor: Colors.blue));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sync Error: $e'), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface.withOpacity(0.8),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        border: Border.all(color: Colors.white10, width: 1),
-        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 20, offset: Offset(0, -5))],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          const Text(
-            'CLOUD COMMAND CENTER',
-            style: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-              color: Colors.cyanAccent,
-              letterSpacing: 2,
-            ),
-          ),
-          const SizedBox(height: 24),
-          if (kIsWeb)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.orangeAccent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.orangeAccent.withOpacity(0.3)),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded, color: Colors.orangeAccent),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      'Direct sync is unavailable on Web due to browser security. Use Mobile/Desktop.',
-                      style: TextStyle(color: Colors.orangeAccent, fontSize: 12, fontWeight: FontWeight.w500),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else if (_isLoading)
-            const Column(
-              children: [
-                CircularProgressIndicator(color: Colors.cyanAccent),
-                SizedBox(height: 16),
-                Text('Synchronizing...', style: TextStyle(color: Colors.cyanAccent, fontSize: 12)),
-              ],
-            )
-          else
-            Row(
-              children: [
-                _buildModernButton(
-                  'PULL DATA',
-                  Icons.cloud_download_rounded,
-                  Colors.blueAccent,
-                  () => _handleSync(false),
-                ),
-                const SizedBox(width: 16),
-                _buildModernButton(
-                  'PUSH DATA',
-                  Icons.cloud_upload_rounded,
-                  Colors.greenAccent,
-                  () => _handleSync(true),
-                ),
-              ],
-            ),
-          const SizedBox(height: 10),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernButton(String label, IconData icon, Color color, VoidCallback onPressed) {
-    return Expanded(
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              colors: [color.withOpacity(0.15), color.withOpacity(0.02)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            border: Border.all(color: color.withOpacity(0.4), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: color.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            children: [
-              Icon(icon, color: color, size: 32),
-              const SizedBox(height: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 12,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

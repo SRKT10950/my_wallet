@@ -54,9 +54,13 @@ class OdAccountsScreen extends StatelessWidget {
                     final now = DateTime.now();
                     DateTime nextBilling;
                     if (now.day < acc.billingDay) {
-                      nextBilling = DateTime(now.year, now.month, acc.billingDay);
+                      int lastDay = DateTime(now.year, now.month + 1, 0).day;
+                      int billingDayClamped = acc.billingDay > lastDay ? lastDay : acc.billingDay;
+                      nextBilling = DateTime(now.year, now.month, billingDayClamped);
                     } else {
-                      nextBilling = DateTime(now.year, now.month + 1, acc.billingDay);
+                      int lastDay = DateTime(now.year, now.month + 2, 0).day;
+                      int billingDayClamped = acc.billingDay > lastDay ? lastDay : acc.billingDay;
+                      nextBilling = DateTime(now.year, now.month + 1, billingDayClamped);
                     }
                     final suffix = ['th', 'st', 'nd', 'rd', 'th', 'th', 'th', 'th', 'th', 'th'][nextBilling.day % 10];
                     final formattedBilling = '${nextBilling.day}${nextBilling.day >= 11 && nextBilling.day <= 13 ? 'th' : suffix} ${DateFormat('MMM').format(nextBilling)}';
@@ -65,7 +69,7 @@ class OdAccountsScreen extends StatelessWidget {
                       elevation: 8,
                       margin: const EdgeInsets.only(bottom: 20),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                      color: const Color(0xFF0F3460).withOpacity(0.8),
+                      color: const Color(0xFF0F3460).withValues(alpha: 0.8),
                       child: InkWell(
                         onTap: () {
                           Navigator.push(
@@ -249,13 +253,53 @@ class _AddOdAccountSheetState extends State<AddOdAccountSheet> {
               const SizedBox(height: 24),
               _buildField(_nameController, 'Bank / Account Name', Icons.account_balance),
               const SizedBox(height: 16),
-              _buildField(_limitController, 'OD Limit (Principal)', Icons.account_balance_wallet, isNumeric: true),
+              _buildField(
+                _limitController, 
+                'OD Limit (Principal)', 
+                Icons.account_balance_wallet, 
+                isNumeric: true,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Required';
+                  final amt = double.tryParse(v);
+                  if (amt == null) return 'Must be a valid number';
+                  if (amt <= 0) return 'Must be greater than 0';
+                  return null;
+                },
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: _buildField(_rateController, 'Annual Interest %', Icons.percent, isNumeric: true)),
+                  Expanded(
+                    child: _buildField(
+                      _rateController, 
+                      'Annual Interest %', 
+                      Icons.percent, 
+                      isNumeric: true,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final rate = double.tryParse(v);
+                        if (rate == null) return 'Must be a valid number';
+                        if (rate < 0) return 'Cannot be negative';
+                        return null;
+                      },
+                    ),
+                  ),
                   const SizedBox(width: 16),
-                  Expanded(child: _buildField(_billingDayController, 'Billing Day (1-31)', Icons.calendar_today, isNumeric: true)),
+                  Expanded(
+                    child: _buildField(
+                      _billingDayController, 
+                      'Billing Day (1-31)', 
+                      Icons.calendar_today, 
+                      isNumeric: true,
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Required';
+                        final bDay = int.tryParse(v);
+                        if (bDay == null) return 'Must be a whole number';
+                        if (bDay < 1 || bDay > 31) return 'Must be between 1 and 31';
+                        return null;
+                      },
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 32),
@@ -320,11 +364,11 @@ class _AddOdAccountSheetState extends State<AddOdAccountSheet> {
     );
   }
 
-  Widget _buildField(TextEditingController controller, String label, IconData icon, {bool isNumeric = false}) {
+  Widget _buildField(TextEditingController controller, String label, IconData icon, {bool isNumeric = false, String? Function(String?)? validator}) {
     return TextFormField(
       controller: controller,
       style: const TextStyle(color: Colors.white),
-      keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+      keyboardType: isNumeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: Colors.white60),
@@ -332,7 +376,7 @@ class _AddOdAccountSheetState extends State<AddOdAccountSheet> {
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.white12)),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Colors.cyanAccent)),
       ),
-      validator: (v) => v!.isEmpty ? 'Required' : null,
+      validator: validator ?? ((v) => v == null || v.isEmpty ? 'Required' : null),
     );
   }
 }

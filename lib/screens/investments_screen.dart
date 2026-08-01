@@ -183,7 +183,7 @@ class _AddInvestmentSheetState extends State<AddInvestmentSheet> {
                 Text(isEdit ? 'Edit Investment' : 'Add Investment', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  value: _selectedType,
+                  initialValue: _selectedType,
                   decoration: const InputDecoration(labelText: 'Investment Type', border: OutlineInputBorder()),
                   items: ['FD', 'RD', 'Mutual Fund', 'Stock', 'SIP', 'PPF'].map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
                   onChanged: (v) => setState(() => _selectedType = v!),
@@ -198,8 +198,14 @@ class _AddInvestmentSheetState extends State<AddInvestmentSheet> {
                 TextFormField(
                   controller: _amountController,
                   decoration: InputDecoration(labelText: isMonthly ? 'Monthly Installment (₹)' : 'Principal Amount (₹)', border: const OutlineInputBorder()),
-                  keyboardType: TextInputType.number,
-                  validator: (v) => v!.isEmpty ? 'Required' : null,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return 'Required';
+                    final amt = double.tryParse(v);
+                    if (amt == null) return 'Must be a valid number';
+                    if (amt <= 0) return 'Must be greater than 0';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -208,8 +214,14 @@ class _AddInvestmentSheetState extends State<AddInvestmentSheet> {
                       child: TextFormField(
                         controller: _roiController,
                         decoration: const InputDecoration(labelText: 'Expected ROI (% p.a.)', border: OutlineInputBorder()),
-                        keyboardType: TextInputType.number,
-                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          final roiVal = double.tryParse(v);
+                          if (roiVal == null) return 'Must be a valid number';
+                          if (roiVal < 0) return 'Cannot be negative';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -218,7 +230,13 @@ class _AddInvestmentSheetState extends State<AddInvestmentSheet> {
                         controller: _tenureController,
                         decoration: const InputDecoration(labelText: 'Tenure (Months)', border: OutlineInputBorder()),
                         keyboardType: TextInputType.number,
-                        validator: (v) => v!.isEmpty ? 'Required' : null,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Required';
+                          final months = int.tryParse(v);
+                          if (months == null) return 'Must be a whole number';
+                          if (months <= 0) return 'Must be greater than 0';
+                          return null;
+                        },
                       ),
                     ),
                   ],
