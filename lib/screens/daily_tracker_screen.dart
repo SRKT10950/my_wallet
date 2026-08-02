@@ -903,12 +903,23 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                         foregroundColor: Colors.black,
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       ),
-                                      onPressed: () {
-                                        setModalState(() {
-                                          selectedItems.add(_SelectedItem(customName: query));
-                                          searchCtrl.clear();
-                                          query = '';
-                                        });
+                                      onPressed: () async {
+                                        final customItem = _SelectedItem(customName: query, quantity: 1.0, selectedUnit: 'Pcs');
+                                        final res = await _showEditItemQuantityAndUnitDialog(
+                                          context,
+                                          title: query,
+                                          initialUnit: 'Pcs',
+                                          initialQty: 1.0,
+                                        );
+                                        if (res != null && res.quantity > 0) {
+                                          customItem.quantity = res.quantity;
+                                          customItem.selectedUnit = res.unit;
+                                          setModalState(() {
+                                            selectedItems.add(customItem);
+                                            searchCtrl.clear();
+                                            query = '';
+                                          });
+                                        }
                                       },
                                       child: const Text('+ Use Custom', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                     ),
@@ -973,18 +984,19 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                               ),
                                               InkWell(
                                                 onTap: () async {
-                                                  final newQty = await _showCustomQuantityDialog(
+                                                  final res = await _showEditItemQuantityAndUnitDialog(
                                                     context,
                                                     title: p.productName,
-                                                    unit: p.unit,
+                                                    initialUnit: selectedItems[existingIdx].selectedUnit,
                                                     initialQty: selectedItems[existingIdx].quantity,
                                                   );
-                                                  if (newQty != null) {
+                                                  if (res != null) {
                                                     setModalState(() {
-                                                      if (newQty <= 0) {
+                                                      if (res.quantity <= 0) {
                                                         selectedItems.removeAt(existingIdx);
                                                       } else {
-                                                        selectedItems[existingIdx].quantity = newQty;
+                                                        selectedItems[existingIdx].quantity = res.quantity;
+                                                        selectedItems[existingIdx].selectedUnit = res.unit;
                                                       }
                                                     });
                                                   }
@@ -1000,8 +1012,8 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                                     mainAxisSize: MainAxisSize.min,
                                                     children: [
                                                       Text(
-                                                        _formatQuantity(selectedItems[existingIdx].quantity),
-                                                        style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 13),
+                                                        '${_formatQuantity(selectedItems[existingIdx].quantity)} ${selectedItems[existingIdx].selectedUnit}',
+                                                        style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold, fontSize: 12),
                                                       ),
                                                       const SizedBox(width: 3),
                                                       const Icon(Icons.edit, size: 11, color: Colors.tealAccent),
@@ -1027,7 +1039,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                             ),
                                             onPressed: () {
                                               setModalState(() {
-                                                selectedItems.add(_SelectedItem(product: p, unitPrice: p.effectivePrice, quantity: 1.0));
+                                                selectedItems.add(_SelectedItem(product: p, unitPrice: p.effectivePrice, quantity: 1.0, selectedUnit: p.unit));
                                               });
                                             },
                                             child: const Text('+ Add', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -1044,7 +1056,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                     // Selected Items Summary & Apply Button
                     if (selectedItems.isNotEmpty) ...[
                       const Divider(color: Colors.white24, height: 16),
-                      const Text('SELECTED ITEMS SUMMARY (Tap to edit quantity)', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
+                      const Text('SELECTED ITEMS SUMMARY (Tap to edit qty & unit)', style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w900, letterSpacing: 1.2)),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
@@ -1053,26 +1065,25 @@ class _TransactionSheetState extends State<TransactionSheet> {
                           final nameToUse = item.product != null
                               ? (item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim())
                               : item.customName;
-                          final label = item.product != null
-                              ? '$nameToUse (${_formatQuantity(item.quantity)} ${item.product!.unit}) ✏️'
-                              : item.customName;
+                          final label = '$nameToUse (${_formatQuantity(item.quantity)} ${item.selectedUnit}) ✏️';
                           return ActionChip(
                             backgroundColor: Colors.tealAccent.withValues(alpha: 0.2),
                             labelStyle: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold),
                             label: Text(label),
                             onPressed: () async {
-                              final newQty = await _showCustomQuantityDialog(
+                              final res = await _showEditItemQuantityAndUnitDialog(
                                 context,
                                 title: item.product?.productName ?? item.customName,
-                                unit: item.product?.unit ?? 'Pcs',
+                                initialUnit: item.selectedUnit,
                                 initialQty: item.quantity,
                               );
-                              if (newQty != null) {
+                              if (res != null) {
                                 setModalState(() {
-                                  if (newQty <= 0) {
+                                  if (res.quantity <= 0) {
                                     selectedItems.remove(item);
                                   } else {
-                                    item.quantity = newQty;
+                                    item.quantity = res.quantity;
+                                    item.selectedUnit = res.unit;
                                   }
                                 });
                               }
@@ -1094,30 +1105,39 @@ class _TransactionSheetState extends State<TransactionSheet> {
                         ),
                         onPressed: () {
                           if (selectedItems.isNotEmpty) {
+                            String newItemsStr = '';
                             if (selectedItems.length == 1) {
                               final single = selectedItems.first;
                               if (single.product != null) {
                                 final nameToUse = single.product!.localName.trim().isNotEmpty ? single.product!.localName.trim() : single.product!.productName.trim();
-                                _itemController.text = '$nameToUse (${_formatQuantity(single.quantity)} ${single.product!.unit})';
+                                newItemsStr = '$nameToUse (${_formatQuantity(single.quantity)} ${single.selectedUnit})';
                               } else {
-                                _itemController.text = single.customName;
+                                newItemsStr = '${single.customName} (${_formatQuantity(single.quantity)} ${single.selectedUnit})';
                               }
                             } else {
-                              final lines = selectedItems.map((item) {
+                              newItemsStr = selectedItems.map((item) {
                                 if (item.product != null) {
                                   final nameToUse = item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim();
-                                  return '• $nameToUse (${_formatQuantity(item.quantity)} ${item.product!.unit})';
+                                  return '• $nameToUse (${_formatQuantity(item.quantity)} ${item.selectedUnit})';
                                 } else {
-                                  return '• ${item.customName}';
+                                  return '• ${item.customName} (${_formatQuantity(item.quantity)} ${item.selectedUnit})';
                                 }
                               }).join('\n');
-                              _itemController.text = lines;
+                            }
+
+                            final existingText = _itemController.text.trim();
+                            if (existingText.isEmpty) {
+                              _itemController.text = newItemsStr;
+                            } else {
+                              _itemController.text = '$existingText\n$newItemsStr';
                             }
 
                             if (totalCalcCost > 0) {
-                              _costController.text = totalCalcCost.toStringAsFixed(0);
+                              final existingCost = double.tryParse(_costController.text.trim()) ?? 0.0;
+                              final newTotal = existingCost + totalCalcCost;
+                              _costController.text = newTotal.toStringAsFixed(0);
                               if (_cleared) {
-                                _paidController.text = totalCalcCost.toStringAsFixed(0);
+                                _paidController.text = newTotal.toStringAsFixed(0);
                               }
                             }
                             setState(() {});
@@ -1126,7 +1146,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                         },
                         child: Text(
                           selectedItems.isNotEmpty
-                              ? 'Apply ${selectedItems.length} Item(s) (${provider.defaultCurrency}${totalCalcCost.toStringAsFixed(0)})'
+                              ? 'Add ${selectedItems.length} Item(s) (${provider.defaultCurrency}${totalCalcCost.toStringAsFixed(0)})'
                               : 'Close',
                           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                         ),
@@ -1531,33 +1551,216 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
     );
   }
 
-  void _settleShopDues(BuildContext context, List<DailyTransaction> dueTxs) {
+  void _settleShopDues(BuildContext context, List<DailyTransaction> dueTxs, [String shopName = 'Shop', double totalDue = 0.0]) {
     final provider = Provider.of<FinanceProvider>(context, listen: false);
-    for (var tx in dueTxs) {
-      if (tx.cost > tx.paidAmount) {
-        final updated = DailyTransaction(
-          id: tx.id,
-          date: tx.date,
-          categoryId: tx.categoryId,
-          itemService: tx.itemService,
-          cost: tx.cost,
-          paidAmount: tx.cost,
-          cleared: true,
-          accountId: tx.accountId,
-          toAccountId: tx.toAccountId,
-          transactionType: tx.transactionType,
-          tags: tx.tags,
-          note: tx.note,
-          merchantName: tx.merchantName,
+    final calcDue = totalDue > 0 ? totalDue : dueTxs.fold(0.0, (s, t) => s + (t.cost - t.paidAmount));
+    final amountCtrl = TextEditingController(text: calcDue.toStringAsFixed(0));
+    DateTime paymentDate = DateTime.now();
+    WalletAccount? selectedAccount = provider.accounts.isNotEmpty ? provider.accounts.first : null;
+    bool recordTransaction = true;
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final accounts = provider.accounts;
+            return AlertDialog(
+              backgroundColor: const Color(0xFF1E2238),
+              title: Row(
+                children: [
+                  const Icon(Icons.payment, color: Colors.tealAccent),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Pay Dues ($shopName)', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                  ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Total Pending Due:', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                          Text('${provider.defaultCurrency}${calcDue.toStringAsFixed(0)}', style: const TextStyle(color: Colors.redAccent, fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    const Text('Payment Amount (Partial or Full):', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: amountCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      style: const TextStyle(color: Colors.tealAccent, fontSize: 18, fontWeight: FontWeight.bold),
+                      decoration: InputDecoration(
+                        prefixText: '${provider.defaultCurrency} ',
+                        prefixStyle: const TextStyle(color: Colors.tealAccent, fontSize: 18, fontWeight: FontWeight.bold),
+                        border: const OutlineInputBorder(),
+                        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent, width: 2)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Date Picker
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Payment Date:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                        TextButton.icon(
+                          icon: const Icon(Icons.calendar_today, size: 14, color: Colors.tealAccent),
+                          label: Text(DateFormat('dd MMM yyyy').format(paymentDate), style: const TextStyle(color: Colors.tealAccent, fontWeight: FontWeight.bold)),
+                          onPressed: () async {
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: paymentDate,
+                              firstDate: DateTime(2020),
+                              lastDate: DateTime(2100),
+                            );
+                            if (picked != null) {
+                              setDialogState(() {
+                                paymentDate = picked;
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Account Dropdown
+                    if (accounts.isNotEmpty) ...[
+                      const Text('Payment Account:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      DropdownButtonFormField<WalletAccount>(
+                        value: selectedAccount ?? accounts.first,
+                        dropdownColor: const Color(0xFF1E2238),
+                        decoration: const InputDecoration(
+                          border: OutlineInputBorder(),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        items: accounts.map((acc) {
+                          return DropdownMenuItem<WalletAccount>(
+                            value: acc,
+                            child: Text('${acc.name} (Bal: ${provider.defaultCurrency}${acc.initialBalance.toStringAsFixed(0)})'),
+                          );
+                        }).toList(),
+                        onChanged: (acc) {
+                          if (acc != null) setDialogState(() => selectedAccount = acc);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+
+                    Row(
+                      children: [
+                        Checkbox(
+                          value: recordTransaction,
+                          activeColor: Colors.tealAccent,
+                          checkColor: Colors.black,
+                          onChanged: (val) {
+                            setDialogState(() => recordTransaction = val ?? true);
+                          },
+                        ),
+                        const Expanded(
+                          child: Text('Record expense transaction with date', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.tealAccent,
+                    foregroundColor: Colors.black,
+                  ),
+                  onPressed: () {
+                    final payAmt = double.tryParse(amountCtrl.text.trim()) ?? 0.0;
+                    if (payAmt <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please enter a valid payment amount.')),
+                      );
+                      return;
+                    }
+
+                    double paymentLeft = payAmt;
+                    for (var tx in dueTxs) {
+                      if (paymentLeft <= 0) break;
+                      double remainingDue = tx.cost - tx.paidAmount;
+                      if (remainingDue > 0) {
+                        double payForThis = paymentLeft >= remainingDue ? remainingDue : paymentLeft;
+                        double newPaid = tx.paidAmount + payForThis;
+                        paymentLeft -= payForThis;
+
+                        final updated = DailyTransaction(
+                          id: tx.id,
+                          date: tx.date,
+                          categoryId: tx.categoryId,
+                          itemService: tx.itemService,
+                          cost: tx.cost,
+                          paidAmount: newPaid,
+                          cleared: newPaid >= tx.cost,
+                          accountId: tx.accountId,
+                          toAccountId: tx.toAccountId,
+                          transactionType: tx.transactionType,
+                          tags: tx.tags,
+                          note: tx.note,
+                          merchantName: tx.merchantName,
+                        );
+                        provider.updateTransaction(updated);
+                      }
+                    }
+
+                    if (recordTransaction) {
+                      final paymentTx = DailyTransaction(
+                        date: paymentDate.toIso8601String(),
+                        categoryId: dueTxs.isNotEmpty ? dueTxs.first.categoryId : 1,
+                        itemService: 'Payment for $shopName Dues',
+                        cost: payAmt,
+                        paidAmount: payAmt,
+                        cleared: true,
+                        accountId: selectedAccount?.id ?? 1,
+                        transactionType: 'Expense',
+                        tags: ['shop:${shopName.toLowerCase()}', 'due-settlement'],
+                        note: 'Payment of ${provider.defaultCurrency}${payAmt.toStringAsFixed(0)} for $shopName',
+                        merchantName: shopName,
+                      );
+                      provider.addTransaction(paymentTx);
+                    }
+
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('✅ Paid ${provider.defaultCurrency}${payAmt.toStringAsFixed(0)} for $shopName on ${DateFormat('dd MMM yyyy').format(paymentDate)}.'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  child: const Text('Record Payment', style: TextStyle(fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          },
         );
-        provider.updateTransaction(updated);
-      }
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('All pending shop dues marked as fully paid!'),
-        backgroundColor: Colors.green,
-      ),
+      },
     );
   }
 
@@ -1800,7 +2003,7 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
                                       foregroundColor: Colors.black,
                                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                     ),
-                                    onPressed: () => _settleShopDues(context, dueTxs),
+                                    onPressed: () => _settleShopDues(context, dueTxs, shopName, shopTotalDue),
                                   ),
                                 ),
                               ],
@@ -2044,13 +2247,15 @@ class _SelectedItem {
   final String customName;
   double quantity;
   double unitPrice;
+  String selectedUnit;
 
   _SelectedItem({
     this.product,
     this.customName = '',
     this.quantity = 1.0,
     this.unitPrice = 0.0,
-  });
+    String? selectedUnit,
+  }) : selectedUnit = selectedUnit ?? (product?.unit ?? 'Pcs');
 
   double get totalPrice => unitPrice * quantity;
 }
@@ -2062,76 +2267,123 @@ String _formatQuantity(double q) {
   return q.toStringAsFixed(2).replaceAll(RegExp(r'\.?0+$'), '');
 }
 
-Future<double?> _showCustomQuantityDialog(
+class _ItemQtyUnitResult {
+  final double quantity;
+  final String unit;
+  _ItemQtyUnitResult({required this.quantity, required this.unit});
+}
+
+Future<_ItemQtyUnitResult?> _showEditItemQuantityAndUnitDialog(
   BuildContext context, {
   required String title,
-  required String unit,
+  required String initialUnit,
   required double initialQty,
 }) {
   final qtyCtrl = TextEditingController(text: _formatQuantity(initialQty));
-  return showDialog<double>(
+  String currentUnit = initialUnit;
+  final List<String> availableUnits = [
+    'Pcs', 'Kg', 'Gram', 'Ltr', 'Ml', 'Pack', 'Box', 'Dozen', 'Bottle', 'Strip', 'Gm', 'Meter'
+  ];
+  if (!availableUnits.contains(currentUnit)) {
+    availableUnits.insert(0, currentUnit);
+  }
+
+  return showDialog<_ItemQtyUnitResult>(
     context: context,
     builder: (ctx) {
-      return AlertDialog(
-        backgroundColor: const Color(0xFF1E2238),
-        title: Text(
-          'Set Custom Quantity ($title)',
-          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Enter custom quantity in $unit:', style: const TextStyle(color: Colors.white70, fontSize: 13)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: qtyCtrl,
-              autofocus: true,
-              style: const TextStyle(color: Colors.tealAccent, fontSize: 20, fontWeight: FontWeight.bold),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                suffixText: unit,
-                suffixStyle: const TextStyle(color: Colors.white54, fontSize: 14),
-                border: const OutlineInputBorder(),
-                focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent, width: 2)),
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: const Color(0xFF1E2238),
+            title: Text(
+              'Set Quantity & Unit ($title)',
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Select Unit Type:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: availableUnits.map((u) {
+                      final isSel = u == currentUnit;
+                      return ChoiceChip(
+                        label: Text(u, style: TextStyle(color: isSel ? Colors.black : Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                        selected: isSel,
+                        selectedColor: Colors.tealAccent,
+                        backgroundColor: Colors.white10,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() {
+                              currentUnit = u;
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 14),
+                  Text('Enter quantity in $currentUnit:', style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: qtyCtrl,
+                    autofocus: true,
+                    style: const TextStyle(color: Colors.tealAccent, fontSize: 20, fontWeight: FontWeight.bold),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      suffixText: currentUnit,
+                      suffixStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+                      border: const OutlineInputBorder(),
+                      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.tealAccent, width: 2)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const Text('Quick Presets:', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 5.0, 10.0].map((preset) {
+                      return ActionChip(
+                        label: Text('${_formatQuantity(preset)} $currentUnit'),
+                        backgroundColor: Colors.white10,
+                        labelStyle: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                        onPressed: () {
+                          qtyCtrl.text = _formatQuantity(preset);
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 12),
-            const Text('Quick Presets:', style: TextStyle(color: Colors.white38, fontSize: 11, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 5.0, 10.0].map((preset) {
-                return ActionChip(
-                  label: Text('${_formatQuantity(preset)} $unit'),
-                  backgroundColor: Colors.white10,
-                  labelStyle: const TextStyle(color: Colors.tealAccent, fontSize: 11, fontWeight: FontWeight.bold),
-                  onPressed: () {
-                    qtyCtrl.text = _formatQuantity(preset);
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-            onPressed: () => Navigator.pop(ctx, null),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.tealAccent,
-              foregroundColor: Colors.black,
-            ),
-            child: const Text('Set Quantity', style: TextStyle(fontWeight: FontWeight.bold)),
-            onPressed: () {
-              final val = double.tryParse(qtyCtrl.text.trim());
-              Navigator.pop(ctx, val);
-            },
-          ),
-        ],
+            actions: [
+              TextButton(
+                child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                onPressed: () => Navigator.pop(ctx, null),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.tealAccent,
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () {
+                  final val = double.tryParse(qtyCtrl.text.trim());
+                  if (val != null) {
+                    Navigator.pop(ctx, _ItemQtyUnitResult(quantity: val, unit: currentUnit));
+                  } else {
+                    Navigator.pop(ctx, null);
+                  }
+                },
+              ),
+            ],
+          );
+        },
       );
     },
   );

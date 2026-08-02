@@ -95,19 +95,8 @@ class ResponsiveLayout extends StatelessWidget {
               const Icon(Icons.grid_view_rounded, size: 18, color: AppColors.primary),
               const SizedBox(width: 8),
               Text(
-                'mWallet Workspace',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Text('/', style: TextStyle(color: AppColors.darkTextMuted)),
-              const SizedBox(width: 6),
-              Text(
                 items[currentIndex < items.length ? currentIndex : 0].label,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
               ),
             ],
           ),
