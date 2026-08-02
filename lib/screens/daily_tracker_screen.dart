@@ -1513,6 +1513,14 @@ class _TransactionSheetState extends State<TransactionSheet> {
 // -------------------------------------------------------------
 // SHOP / MERCHANT MONTHLY BILL LEDGER SHEET
 // -------------------------------------------------------------
+bool _isPaymentSettlementTx(DailyTransaction tx) {
+  if (tx.tags.contains('due-settlement') || tx.tags.contains('due_payment')) return true;
+  final itemLower = tx.itemService.toLowerCase();
+  if (itemLower.startsWith('payment for') && itemLower.contains('due')) return true;
+  if (tx.note.toLowerCase().contains('settlement of') || tx.note.toLowerCase().contains('due-settlement')) return true;
+  return false;
+}
+
 class ShopLedgerSheet extends StatefulWidget {
   const ShopLedgerSheet({super.key});
 
@@ -1530,7 +1538,9 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
         ? DateFormat('MMMM yyyy').format(DateTime(_selectedYear, _selectedMonth!))
         : 'Year $_selectedYear';
 
-    final itemsList = shopTxs.map((tx) {
+    // EXCLUDE payment settlement transactions from purchase items list
+    final purchaseTxs = shopTxs.where((tx) => !_isPaymentSettlementTx(tx)).toList();
+    final itemsList = purchaseTxs.map((tx) {
       final dt = DateTime.tryParse(tx.date) ?? DateTime.now();
       final dateStr = DateFormat('MMM dd').format(dt);
       return {
@@ -1542,6 +1552,21 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
     }).toList();
 
     final provider = Provider.of<FinanceProvider>(context, listen: false);
+
+    // Calculate shop-specific purchase-only Total Billed
+    final double purchaseBilled = purchaseTxs.fold(0.0, (s, t) => s + t.cost);
+
+    // All-time pending due across all history for this shop
+    final allTimeShopTxs = provider.transactions.where((t) {
+      final matchesName = t.merchantName.toLowerCase() == shopName.toLowerCase();
+      final matchesTag = t.tags.contains('shop:${shopName.toLowerCase()}');
+      return matchesName || matchesTag;
+    }).toList();
+    final allTimePurchaseTxs = allTimeShopTxs.where((t) => !_isPaymentSettlementTx(t)).toList();
+    final double allTimeBilled = allTimePurchaseTxs.fold(0.0, (s, t) => s + t.cost);
+    final double allTimePaid = allTimeShopTxs.fold(0.0, (s, t) => s + t.paidAmount);
+    final double allTimePendingDue = (allTimeBilled - allTimePaid) > 0 ? (allTimeBilled - allTimePaid) : 0.0;
+
     Contact? matchedContact;
     try {
       matchedContact = provider.contacts.firstWhere(
@@ -1560,8 +1585,10 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
       businessName: displayBusinessName,
       monthYearStr: monthText,
       items: itemsList,
-      totalCost: totalCost,
+      totalCost: purchaseBilled,
       totalPaid: totalPaid,
+      monthPendingDue: totalDue,
+      allTimePendingDue: allTimePendingDue,
       isWhatsApp: true,
     );
 
@@ -1825,10 +1852,25 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
       return true;
     }).toList();
 
-    // Cumulative Calculations
-    final double totalBilled = filteredTxs.fold(0.0, (sum, tx) => sum + tx.cost);
+    // Cumulative Calculations (Purchase bills only for Total Billed)
+    final purchaseTxs = filteredTxs.where((tx) => !_isPaymentSettlementTx(tx)).toList();
+    final double totalBilled = purchaseTxs.fold(0.0, (sum, tx) => sum + tx.cost);
     final double totalPaid = filteredTxs.fold(0.0, (sum, tx) => sum + tx.paidAmount);
-    final double totalDue = (totalBilled - totalPaid) > 0 ? (totalBilled - totalPaid) : 0.0;
+    final double monthPendingDue = (totalBilled - totalPaid) > 0 ? (totalBilled - totalPaid) : 0.0;
+
+    // All-time pending dues across all history for selected shop(s)
+    final allTimeShopTxs = allShopTxs.where((tx) {
+      if (_selectedShop != 'All') {
+        final matchesName = tx.merchantName.toLowerCase() == _selectedShop.toLowerCase();
+        final matchesTag = tx.tags.contains('shop:${_selectedShop.toLowerCase()}');
+        return matchesName || matchesTag;
+      }
+      return true;
+    }).toList();
+    final allTimePurchaseTxs = allTimeShopTxs.where((tx) => !_isPaymentSettlementTx(tx)).toList();
+    final double allTimeBilled = allTimePurchaseTxs.fold(0.0, (sum, tx) => sum + tx.cost);
+    final double allTimePaid = allTimeShopTxs.fold(0.0, (sum, tx) => sum + tx.paidAmount);
+    final double allTimePendingDue = (allTimeBilled - allTimePaid) > 0 ? (allTimeBilled - allTimePaid) : 0.0;
 
     // Group filtered transactions by shop name
     final Map<String, List<DailyTransaction>> shopGroups = {};
@@ -1926,12 +1968,12 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
           ),
           const SizedBox(height: 16),
 
-          // Monthly Metrics Summary Card
+          // Monthly & All-Time Metrics Summary Card
           Card(
             color: const Color(0xFF121422),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(12.0),
               child: Column(
                 children: [
                   Row(
@@ -1940,25 +1982,33 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Total Billed', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          const Text('Total Billed', style: TextStyle(color: Colors.grey, fontSize: 10)),
                           const SizedBox(height: 4),
-                          Text('₹${totalBilled.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('₹${totalBilled.toStringAsFixed(0)}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                         ],
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Total Paid', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          const Text('Total Paid', style: TextStyle(color: Colors.grey, fontSize: 10)),
                           const SizedBox(height: 4),
-                          Text('₹${totalPaid.toStringAsFixed(0)}', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('₹${totalPaid.toStringAsFixed(0)}', style: const TextStyle(color: Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 14)),
                         ],
                       ),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Pending Due', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          const Text('Month Due', style: TextStyle(color: Colors.grey, fontSize: 10)),
                           const SizedBox(height: 4),
-                          Text('₹${totalDue.toStringAsFixed(0)}', style: TextStyle(color: totalDue > 0 ? Colors.redAccent : Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text('₹${monthPendingDue.toStringAsFixed(0)}', style: TextStyle(color: monthPendingDue > 0 ? Colors.amberAccent : Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 14)),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('All Pending Due', style: TextStyle(color: Colors.grey, fontSize: 10)),
+                          const SizedBox(height: 4),
+                          Text('₹${allTimePendingDue.toStringAsFixed(0)}', style: TextStyle(color: allTimePendingDue > 0 ? Colors.redAccent : Colors.greenAccent, fontWeight: FontWeight.bold, fontSize: 14)),
                         ],
                       ),
                     ],
@@ -1978,7 +2028,8 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
                     itemBuilder: (context, idx) {
                       final shopName = shopGroups.keys.elementAt(idx);
                       final txs = shopGroups[shopName]!;
-                      final shopTotalCost = txs.fold(0.0, (s, t) => s + t.cost);
+                      final shopPurchaseTxs = txs.where((t) => !_isPaymentSettlementTx(t)).toList();
+                      final shopTotalCost = shopPurchaseTxs.fold(0.0, (s, t) => s + t.cost); // Purchase bills only
                       final shopTotalPaid = txs.fold(0.0, (s, t) => s + t.paidAmount);
                       final shopTotalDue = (shopTotalCost - shopTotalPaid) > 0 ? (shopTotalCost - shopTotalPaid) : 0.0;
                       final dueTxs = txs.where((t) => t.cost > t.paidAmount).toList();

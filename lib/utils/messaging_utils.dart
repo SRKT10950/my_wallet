@@ -250,35 +250,47 @@ class MessagingUtils {
     required List<Map<String, dynamic>> items,
     required double totalCost,
     required double totalPaid,
+    double? monthPendingDue,
+    double? allTimePendingDue,
     bool isWhatsApp = true,
   }) {
-    final closingDue = (totalCost - totalPaid) > 0 ? (totalCost - totalPaid) : 0.0;
+    final mPending = monthPendingDue ?? ((totalCost - totalPaid) > 0 ? (totalCost - totalPaid) : 0.0);
+    final aPending = allTimePendingDue ?? mPending;
 
     if (isWhatsApp) {
       final buffer = StringBuffer();
       buffer.writeln('📊 *MONTHLY INVOICE / STATEMENT*');
       buffer.writeln('══════════════════════════════');
-      buffer.writeln('📅 *Month:* $monthYearStr');
+      buffer.writeln('📅 *Period:* $monthYearStr');
       if (businessName.isNotEmpty) buffer.writeln('🏬 *Business:* $businessName');
       if (contactName.isNotEmpty) buffer.writeln('👤 *Contact:* $contactName');
       buffer.writeln();
-      buffer.writeln('📋 *SUMMARY OF TRANSACTIONS:*');
+      buffer.writeln('📋 *PURCHASE ITEMS BILLED:*');
       buffer.writeln('──────────────────────────────');
-      for (final item in items) {
-        final d = item['date'] ?? '';
-        final desc = item['desc'] ?? '';
-        final c = (item['cost'] as num?)?.toDouble() ?? 0.0;
-        final p = (item['paid'] as num?)?.toDouble() ?? 0.0;
-        buffer.writeln('• $d: $desc - ₹${c.toStringAsFixed(0)} (Paid: ₹${p.toStringAsFixed(0)})');
+      if (items.isEmpty) {
+        buffer.writeln('• No new purchase bills recorded');
+      } else {
+        for (final item in items) {
+          final d = item['date'] ?? '';
+          final desc = item['desc'] ?? '';
+          final c = (item['cost'] as num?)?.toDouble() ?? 0.0;
+          final p = (item['paid'] as num?)?.toDouble() ?? 0.0;
+          buffer.writeln('• $d: $desc - ₹${c.toStringAsFixed(0)} (Paid: ₹${p.toStringAsFixed(0)})');
+        }
       }
       buffer.writeln();
       buffer.writeln('──────────────────────────────');
-      buffer.writeln('💰 *Monthly Total:*   ₹${totalCost.toStringAsFixed(0)}');
-      buffer.writeln('✅ *Total Paid:*      ₹${totalPaid.toStringAsFixed(0)}');
-      if (closingDue > 0) {
-        buffer.writeln('⚠️ *Closing Due:*     ₹${closingDue.toStringAsFixed(0)}');
+      buffer.writeln('📦 *Total Billed:*           ₹${totalCost.toStringAsFixed(0)}');
+      buffer.writeln('✅ *Total Paid:*             ₹${totalPaid.toStringAsFixed(0)}');
+      if (mPending > 0) {
+        buffer.writeln('⏳ *Month Pending Due:*      ₹${mPending.toStringAsFixed(0)}');
       } else {
-        buffer.writeln('🎉 *Status:* Account Clear');
+        buffer.writeln('🎉 *Month Status:*           Fully Paid');
+      }
+      if (aPending > 0) {
+        buffer.writeln('📊 *All Pending Dues (Total):* ₹${aPending.toStringAsFixed(0)}');
+      } else {
+        buffer.writeln('🎉 *All-Time Status:*        Account Clear');
       }
       buffer.writeln('──────────────────────────────');
       buffer.writeln();
@@ -288,11 +300,11 @@ class MessagingUtils {
     } else {
       final buffer = StringBuffer();
       buffer.writeln('[MONTHLY STATEMENT - $monthYearStr]');
-      if (businessName.isNotEmpty) buffer.writeln('Business: $businessName');
+      if (businessName.isNotEmpty) buffer.writeln('Shop: $businessName');
       if (contactName.isNotEmpty) buffer.writeln('Contact: $contactName');
-      buffer.writeln('Total Txns: ${items.length}');
-      buffer.writeln('Total Cost: Rs.${totalCost.toStringAsFixed(0)} | Paid: Rs.${totalPaid.toStringAsFixed(0)} | Closing Due: Rs.${closingDue.toStringAsFixed(0)}');
-      buffer.writeln('Thank you for your business! My Wallet App.');
+      buffer.writeln('Items Billed: ${items.length} | Total Billed: Rs.${totalCost.toStringAsFixed(0)} | Total Paid: Rs.${totalPaid.toStringAsFixed(0)}');
+      buffer.writeln('Month Pending: Rs.${mPending.toStringAsFixed(0)} | All-Time Pending Dues: Rs.${aPending.toStringAsFixed(0)}');
+      buffer.writeln('Thank you! Sent via My Wallet App.');
       return buffer.toString();
     }
   }
