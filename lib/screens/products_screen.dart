@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/product.dart';
+import '../data/master_product_catalog.dart';
 import '../providers/finance_provider.dart';
 import '../services/web_product_search_service.dart';
 import '../utils/hinglish_translator.dart';
@@ -256,6 +257,208 @@ class _ProductsScreenState extends State<ProductsScreen> {
     );
   }
 
+  void _confirmDeleteAllProducts(BuildContext context, FinanceProvider provider) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF16192E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+            SizedBox(width: 8),
+            Text('Delete All Products?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to delete ALL products from your database? This action cannot be undone.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+            onPressed: () => Navigator.pop(ctx),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
+            icon: const Icon(Icons.delete_forever, size: 18),
+            label: const Text('Delete All', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await provider.deleteAllProducts();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🗑️ All products deleted from database.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMasterCatalogSheet(BuildContext context, FinanceProvider provider) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF121422),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final catalog = MasterProductCatalog.items;
+            String catSearch = '';
+            String selectedCat = 'All';
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.85,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('📚 Master Product Catalog', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text('Vegetables, Fruits, Groceries, Medicines, Personal Care', style: TextStyle(color: Colors.tealAccent, fontSize: 12)),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white54),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: ['All', 'Vegetables', 'Fruits', 'Groceries', 'Medicines', 'Personal Care'].map((cat) {
+                              final isSel = selectedCat == cat;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                  label: Text(cat),
+                                  selected: isSel,
+                                  selectedColor: Colors.tealAccent,
+                                  labelStyle: TextStyle(color: isSel ? Colors.black : Colors.white70, fontWeight: FontWeight.bold, fontSize: 12),
+                                  backgroundColor: const Color(0xFF16192E),
+                                  onSelected: (selected) {
+                                    if (selected) {
+                                      setSheetState(() => selectedCat = cat);
+                                    }
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Search catalog (e.g. Mango, Potato, KitKat, Sugar)...',
+                      hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+                      prefixIcon: const Icon(Icons.search, color: Colors.tealAccent),
+                      filled: true,
+                      fillColor: const Color(0xFF16192E),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                    ),
+                    onChanged: (val) => setSheetState(() => catSearch = val.trim().toLowerCase()),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final items = catalog.where((p) {
+                          final matchCat = selectedCat == 'All' || p.category.toLowerCase() == selectedCat.toLowerCase();
+                          if (catSearch.isEmpty) return matchCat;
+                          return matchCat && (p.productName.toLowerCase().contains(catSearch) || p.localName.toLowerCase().contains(catSearch) || p.category.toLowerCase().contains(catSearch));
+                        }).toList();
+
+                        if (items.isEmpty) {
+                          return const Center(
+                            child: Text('No catalog products found', style: TextStyle(color: Colors.white54)),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: items.length,
+                          itemBuilder: (context, idx) {
+                            final p = items[idx];
+                            final existsInDb = provider.products.any((dp) => dp.productName.toLowerCase() == p.productName.toLowerCase());
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF16192E),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.tealAccent.withValues(alpha: 0.2)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(p.productName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                        if (p.localName.isNotEmpty)
+                                          Text(p.localName, style: const TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.w600)),
+                                        const SizedBox(height: 2),
+                                        Text('🏷️ ${p.category}  •  ${provider.defaultCurrency}${p.currentPrice.toStringAsFixed(0)} / ${p.quantity} ${p.unit}', style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                                      ],
+                                    ),
+                                  ),
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: existsInDb ? Colors.white12 : Colors.tealAccent,
+                                      foregroundColor: existsInDb ? Colors.white54 : Colors.black,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    ),
+                                    icon: Icon(existsInDb ? Icons.check : Icons.add, size: 16),
+                                    label: Text(existsInDb ? 'Added' : 'Add', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    onPressed: existsInDb ? null : () async {
+                                      await provider.addProduct(p);
+                                      setSheetState(() {});
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('✅ Added "${p.productName}" (${p.localName}) to database!'), backgroundColor: Colors.teal, duration: const Duration(seconds: 2)),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<FinanceProvider>(context);
@@ -285,6 +488,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.menu_book_outlined, color: Colors.tealAccent),
+            tooltip: 'Browse Master Catalog',
+            onPressed: () => _showMasterCatalogSheet(context, provider),
+          ),
+          IconButton(
             icon: _isSyncingPrices
                 ? const SizedBox(
                     width: 18,
@@ -308,6 +516,11 @@ class _ProductsScreenState extends State<ProductsScreen> {
                       );
                     }
                   },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_forever_outlined, color: Colors.redAccent),
+            tooltip: 'Delete All Products',
+            onPressed: () => _confirmDeleteAllProducts(context, provider),
           ),
         ],
         backgroundColor: Colors.transparent,

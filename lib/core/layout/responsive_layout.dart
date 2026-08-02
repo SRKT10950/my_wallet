@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../theme/theme_provider.dart';
@@ -188,6 +189,7 @@ class ResponsiveLayout extends StatelessWidget {
     if (deviceType == DeviceType.miniMobile || deviceType == DeviceType.mobile) {
       return Scaffold(
         body: SafeArea(
+          bottom: false,
           child: Column(
             children: [
               headerBar,
@@ -200,30 +202,10 @@ class ResponsiveLayout extends StatelessWidget {
             ],
           ),
         ),
-        bottomNavigationBar: SafeArea(
-          child: Container(
-            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: AppGlassDecoration.card(context, borderRadius: BorderRadius.circular(24)),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: BottomNavigationBar(
-                currentIndex: currentIndex,
-                onTap: onIndexChanged,
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                selectedItemColor: AppColors.primary,
-                unselectedItemColor: isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted,
-                items: items
-                    .map((item) => BottomNavigationBarItem(
-                          icon: Icon(item.icon, size: 20),
-                          activeIcon: Icon(item.selectedIcon, size: 22),
-                          label: item.label,
-                        ))
-                    .toList(),
-              ),
-            ),
-          ),
+        bottomNavigationBar: _MobileBottomNavTray(
+          currentIndex: currentIndex,
+          items: items,
+          onIndexChanged: onIndexChanged,
         ),
       );
     }
@@ -459,3 +441,107 @@ class ResponsiveLayout extends StatelessWidget {
     );
   }
 }
+
+class _MobileBottomNavTray extends StatelessWidget {
+  final int currentIndex;
+  final List<NavigationItem> items;
+  final ValueChanged<int> onIndexChanged;
+
+  const _MobileBottomNavTray({
+    required this.currentIndex,
+    required this.items,
+    required this.onIndexChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
+    // On iPhone, bottomInset is typically ~34px for home bar indicator.
+    final double safeBottomPadding = math.max(bottomInset, 10.0);
+
+    return Container(
+      padding: EdgeInsets.only(
+        left: 8,
+        right: 8,
+        top: 6,
+        bottom: safeBottomPadding,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF0E111F).withValues(alpha: 0.96) : Colors.white.withValues(alpha: 0.96),
+        border: Border(
+          top: BorderSide(
+            color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+            width: 1.0,
+          ),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 16,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: items.asMap().entries.map((entry) {
+          final int idx = entry.key;
+          final item = entry.value;
+          final bool isSelected = idx == currentIndex;
+
+          return Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onIndexChanged(idx),
+                borderRadius: BorderRadius.circular(16),
+                splashColor: AppColors.primary.withValues(alpha: 0.15),
+                highlightColor: AppColors.primary.withValues(alpha: 0.08),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.18)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Icon(
+                          isSelected ? item.selectedIcon : item.icon,
+                          size: 22,
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected
+                              ? AppColors.primary
+                              : (isDark ? AppColors.darkTextMuted : AppColors.lightTextMuted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+

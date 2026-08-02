@@ -181,6 +181,7 @@ export const App: React.FC = () => {
             onAddProduct={handleAddProduct}
             onUpdateProduct={(p) => { DBService.updateProduct(p); setProducts(DBService.getProducts()); }}
             onDeleteProduct={handleDeleteProduct}
+            onDeleteAllProducts={() => { DBService.deleteAllProducts(); setProducts([]); showToast('🗑️ All products deleted from database.'); }}
             onOpenWebSearch={(q) => { setInitialSearchQuery(q || ''); setIsWebSearchOpen(true); }}
           />
         )}

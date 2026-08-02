@@ -9,7 +9,8 @@
     onUpdateCallback: null,
 
     init: function() {
-      if ('serviceWorker' in navigator) {
+      // Service workers are only supported over HTTP/HTTPS origins, not file://
+      if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
         window.addEventListener('load', () => {
           this.registerServiceWorker();
         });
@@ -24,7 +25,8 @@
     },
 
     registerServiceWorker: function() {
-      // Use fixed URL without random timestamp query to prevent infinite re-registration loops on iOS
+      if (!window.location.protocol.startsWith('http')) return;
+
       const swUrl = 'sw_custom.js';
       
       navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' })
@@ -51,7 +53,7 @@
           };
         })
         .catch((err) => {
-          console.error('[PWA Manager] Service Worker registration failed:', err);
+          console.warn('[PWA Manager] Service Worker registration skipped/failed:', err);
         });
     },
 
@@ -63,7 +65,7 @@
     },
 
     checkForUpdates: function() {
-      if (this.swRegistration) {
+      if (this.swRegistration && window.location.protocol.startsWith('http')) {
         console.log('[PWA Manager] Checking for Service Worker updates...');
         return this.swRegistration.update()
           .then(() => {

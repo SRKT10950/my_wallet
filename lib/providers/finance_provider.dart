@@ -355,8 +355,15 @@ class FinanceProvider with ChangeNotifier {
       final contactsData = await db.loadList('wallet_contacts');
       _contacts = contactsData.map((c) => Contact.fromMap(c)).toList();
 
-      final productsData = await db.loadList('wallet_products');
-      _products = productsData.map((p) => Product.fromMap(p)).toList();
+      final bool hasPurgedProducts = prefs.getBool('products_purged_v2') ?? false;
+      if (!hasPurgedProducts) {
+        _products = [];
+        await db.saveList('wallet_products', []);
+        await prefs.setBool('products_purged_v2', true);
+      } else {
+        final productsData = await db.loadList('wallet_products');
+        _products = productsData.map((p) => Product.fromMap(p)).toList();
+      }
     }
 
     _calculateDynamicLoanStats();
@@ -2090,12 +2097,26 @@ class FinanceProvider with ChangeNotifier {
     Product(id: 305, productName: 'Fortune Sunflower Oil 1L', localName: 'सूरजमुखी तेल (Oil)', category: 'Groceries', unit: 'Pcs', quantity: 1, currentPrice: 140, oldPrice: 155, barcode: '8906007281047', qrCode: 'QR-GROC-OIL-305', imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300', priceDate: '2026-07-30'),
   ];
 
-  Future<void> seedVegetableProducts() async {
-    for (final prod in freshMasterProductList) {
+  Future<void> deleteAllProducts() async {
+    _products.clear();
+    final db = DatabaseHelper.instance;
+    await db.saveList('wallet_products', []);
+    if (SyncConfig.useApiGateway || !kIsWeb) {
+      try {
+        await DbSyncService.clearTable('wallet_products');
+      } catch (e) {
+        debugPrint('Failed to clear remote wallet_products: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<void> addProductsFromCatalog(List<Product> catalogProducts) async {
+    for (final prod in catalogProducts) {
       final exists = _products.any((p) => p.productName.toLowerCase() == prod.productName.toLowerCase());
       if (!exists) {
         final newId = _generateProductId();
-        _products.add(prod.copyWith(id: newId));
+        _products.insert(0, prod.copyWith(id: newId));
       }
     }
     await _saveData('wallet_products', _products);

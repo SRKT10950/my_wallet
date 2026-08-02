@@ -1,58 +1,6 @@
 import { Product, Transaction, LendBorrow, SplitBill, FuelLog, Asset, ScheduledPayment } from '../types';
 
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: 1,
-    productName: 'Potato',
-    localName: 'आलू (Aloo)',
-    category: 'Vegetables & Fruits',
-    referenceLink: 'https://zepto.co',
-    appName: 'Zepto',
-    priceDate: new Date().toISOString().split('T')[0],
-    currentPrice: 30,
-    oldPrice: 35,
-    unit: 'Kg',
-    quantity: 1,
-    barcode: '8901030000018',
-    imageUrl: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=300',
-    description: 'Fresh farm-sourced quality potatoes for daily cooking and roasting.',
-    active: true
-  },
-  {
-    id: 2,
-    productName: 'Amul Pasteurised Butter (500g)',
-    localName: 'अमूल मक्खन (Amul Makhan)',
-    category: 'Dairy & Bakery',
-    referenceLink: 'https://blinkit.com',
-    appName: 'Blinkit',
-    priceDate: new Date().toISOString().split('T')[0],
-    currentPrice: 275,
-    oldPrice: 280,
-    unit: 'Gram',
-    quantity: 500,
-    barcode: '8901262010010',
-    imageUrl: 'https://images.openfoodfacts.org/images/products/890/126/201/0010/front_en.3.400.jpg',
-    description: 'Rich, smooth pasteurised butter prepared from fresh cream, ideal for cooking, baking and spread.',
-    active: true
-  },
-  {
-    id: 3,
-    productName: 'Ocotic Ear Drops (10 ml)',
-    localName: 'कान की दवा (Kaan Ki Drop)',
-    category: 'Medicines',
-    referenceLink: 'https://www.1mg.com',
-    appName: 'Tata 1mg',
-    priceDate: new Date().toISOString().split('T')[0],
-    currentPrice: 85,
-    oldPrice: 95,
-    unit: 'Ml',
-    quantity: 10,
-    barcode: '8904001234567',
-    imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=300',
-    description: 'Combination otic ear drop solution (Chloramphenicol, Clotrimazole, Benzocaine). Effective for ear canal infections, otitis externa, ear pain relief, and clearing ear wax.',
-    active: true
-  }
-];
+const INITIAL_PRODUCTS: Product[] = [];
 
 const INITIAL_TRANSACTIONS: Transaction[] = [
   { id: 101, title: 'Monthly Salary Credit', amount: 85000, category: 'Salary', type: 'income', date: '2026-07-01', account: 'Main Bank' },
@@ -125,6 +73,10 @@ export class DBService {
   static deleteProduct(id: number): void {
     const updated = this.getProducts().filter(p => p.id !== id);
     localStorage.setItem(this.KEY_PRODUCTS, JSON.stringify(updated));
+  }
+
+  static deleteAllProducts(): void {
+    localStorage.setItem(this.KEY_PRODUCTS, JSON.stringify([]));
   }
 
   /* Transactions */

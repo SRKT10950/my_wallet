@@ -270,82 +270,9 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 24),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-              child: Text('PWA App Updates & Offline Sync', style: TextStyle(fontSize: 14, color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
+              child: Text('App Updates & Sync', style: TextStyle(fontSize: 14, color: Colors.white54, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
             ),
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              color: const Color(0xFF121422),
-              child: Column(
-                children: [
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    leading: const Icon(Icons.system_update_sharp, color: Colors.cyanAccent, size: 28),
-                    title: const Text('Check for App Updates', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: const Text('Instantly fetch latest releases without deleting/reinstalling app', style: TextStyle(color: Colors.white30, fontSize: 11)),
-                    trailing: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.cyanAccent,
-                        foregroundColor: Colors.black,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      ),
-                      onPressed: () async {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Checking for latest updates...'), backgroundColor: Colors.cyan),
-                        );
-                        await PwaService().checkForUpdates();
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('App is synced! Force purging cache & reloading...'),
-                              backgroundColor: Colors.teal,
-                            ),
-                          );
-                        }
-                        PwaService().forcePurgeAndReload();
-                      },
-                      child: const Text('UPDATE NOW', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                  const Divider(height: 1, color: Colors.white10),
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    leading: const Icon(Icons.notifications_active_outlined, color: Colors.amberAccent, size: 28),
-                    title: const Text('Web Push Notifications', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: const Text('Test iOS / Android / Desktop push alerts', style: TextStyle(color: Colors.white30, fontSize: 11)),
-                    trailing: TextButton(
-                      onPressed: () async {
-                        final success = await PwaService().sendTestNotification();
-                        if (context.mounted) {
-                          if (success) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Test notification dispatched! Check system tray.'), backgroundColor: Colors.green),
-                            );
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Requesting notification permission...'), backgroundColor: Colors.amber),
-                            );
-                            await PwaService().requestNotificationPermission();
-                          }
-                        }
-                      },
-                      child: const Text('TEST PUSH', style: TextStyle(color: Colors.amberAccent, fontWeight: FontWeight.bold, fontSize: 12)),
-                    ),
-                  ),
-                  const Divider(height: 1, color: Colors.white10),
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                    leading: const Icon(Icons.touch_app_outlined, color: Colors.pinkAccent, size: 28),
-                    title: const Text('App Version & Platform', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
-                    subtitle: Text(
-                      PwaService().isStandalone() ? 'v1.0.1+2 • Standalone Native PWA Mode' : 'v1.0.1+2 • Web Browser Mode',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const AppUpdateCard(),
             const SizedBox(height: 24),
           ],
         ),
@@ -441,3 +368,234 @@ class _SetIncomeSheetState extends State<SetIncomeSheet> {
     );
   }
 }
+
+class AppUpdateCard extends StatefulWidget {
+  const AppUpdateCard({super.key});
+
+  @override
+  State<AppUpdateCard> createState() => _AppUpdateCardState();
+}
+
+class _AppUpdateCardState extends State<AppUpdateCard> {
+  bool _isChecking = false;
+  String _statusMessage = 'App is running latest build';
+  String? _lastCheckedTime;
+  bool _hasUpdate = false;
+
+  Future<void> _handleCheckForUpdates() async {
+    setState(() {
+      _isChecking = true;
+    });
+
+    final res = await PwaService().checkForUpdates();
+
+    if (!mounted) return;
+
+    final now = DateTime.now();
+    final timeStr = "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}";
+
+    setState(() {
+      _isChecking = false;
+      _lastCheckedTime = timeStr;
+      _hasUpdate = res['hasUpdate'] ?? false;
+      _statusMessage = res['message'] ?? (_hasUpdate ? 'New update available!' : 'App is up to date');
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(_statusMessage),
+        backgroundColor: _hasUpdate ? Colors.teal : Colors.cyan,
+      ),
+    );
+  }
+
+  void _showManualUpdateDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF121422),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.system_update_sharp, color: Colors.cyanAccent),
+            SizedBox(width: 10),
+            Text('Update Manually', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: const Text(
+          'This will purge local asset cache and fetch the latest build from the server without deleting your data.',
+          style: TextStyle(color: Colors.white70, fontSize: 13),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.cyanAccent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () {
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Applying manual update & reloading app...'),
+                  backgroundColor: Colors.teal,
+                ),
+              );
+              PwaService().applyUpdate();
+            },
+            child: const Text('UPDATE NOW', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      color: const Color(0xFF121422),
+      child: Padding(
+        padding: const EdgeInsets.all(18.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.cyanAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.system_update_sharp, color: Colors.cyanAccent, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'System & PWA Updates',
+                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _lastCheckedTime != null
+                            ? 'Last checked: Today at $_lastCheckedTime'
+                            : 'Check for updates or trigger manual update',
+                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: _hasUpdate ? Colors.amberAccent.withValues(alpha: 0.5) : Colors.white10,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    _isChecking
+                        ? Icons.sync
+                        : (_hasUpdate ? Icons.new_releases : Icons.check_circle_outline),
+                    color: _isChecking
+                        ? Colors.cyanAccent
+                        : (_hasUpdate ? Colors.amberAccent : Colors.tealAccent),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _isChecking ? 'Checking server for updates...' : _statusMessage,
+                      style: TextStyle(
+                        color: _hasUpdate ? Colors.amberAccent : Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (_isChecking)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyanAccent),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.cyanAccent,
+                      side: const BorderSide(color: Colors.cyanAccent),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: _isChecking ? null : _handleCheckForUpdates,
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text(
+                      'Check for Update',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent,
+                      foregroundColor: Colors.black,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    onPressed: _showManualUpdateDialog,
+                    icon: const Icon(Icons.download, size: 16),
+                    label: const Text(
+                      'Update Manually',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: Colors.white10),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  PwaService().isStandalone() ? 'Platform: Standalone Native PWA' : 'Platform: Web Browser Mode',
+                  style: const TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+                const Text(
+                  'Build: v1.0.2+3',
+                  style: TextStyle(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

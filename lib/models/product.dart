@@ -26,7 +26,7 @@ class Product {
     this.category = 'General',
     this.referenceLink = '',
     this.appName = '',
-    required this.priceDate,
+    this.priceDate = '',
     this.currentPrice = 0.0,
     this.oldPrice = 0.0,
     this.unit = 'Pcs',

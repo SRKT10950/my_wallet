@@ -365,4 +365,21 @@ class DbSyncService {
       await conn.close();
     }
   }
+
+  static Future<void> clearTable(String table) async {
+    if (SyncConfig.useApiGateway) {
+      await DbSyncServiceApi.clearTable(table);
+      return;
+    }
+    final conn = await _connect();
+    try {
+      final userId = await AuthTokenStorage.getUserId() ?? 'user_1';
+      await conn.execute('DELETE FROM $table WHERE user_id = \$1', parameters: [userId]);
+      debugPrint('Sync: Cleared table $table for user $userId');
+    } catch (e) {
+      debugPrint('Sync Direct Clear Error: $e');
+    } finally {
+      await conn.close();
+    }
+  }
 }

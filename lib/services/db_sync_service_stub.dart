@@ -21,4 +21,8 @@ class DbSyncService {
   static Future<void> deleteRecord(String table, String keyColumn, String keyValue, String userId) async {
     await DbSyncServiceApi.deleteRecord(table, keyColumn, keyValue, userId);
   }
+
+  static Future<void> clearTable(String table) async {
+    await DbSyncServiceApi.clearTable(table);
+  }
 }
