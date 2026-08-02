@@ -458,7 +458,7 @@ class _MobileBottomNavTray extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).padding.bottom;
     // On iPhone, bottomInset is typically ~34px for home bar indicator.
-    final double safeBottomPadding = math.max(bottomInset, 10.0);
+    final double safeBottomPadding = math.max(bottomInset, 20.0);
 
     return Container(
       padding: EdgeInsets.only(
