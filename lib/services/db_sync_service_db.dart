@@ -366,14 +366,13 @@ class DbSyncService {
     }
   }
 
-  static Future<void> clearTable(String table) async {
+  static Future<void> clearTable(String table, [String userId = 'user_1']) async {
     if (SyncConfig.useApiGateway) {
-      await DbSyncServiceApi.clearTable(table);
+      await DbSyncServiceApi.clearTable(table, userId);
       return;
     }
     final conn = await _connect();
     try {
-      final userId = await AuthTokenStorage.getUserId() ?? 'user_1';
       await conn.execute('DELETE FROM $table WHERE user_id = \$1', parameters: [userId]);
       debugPrint('Sync: Cleared table $table for user $userId');
     } catch (e) {

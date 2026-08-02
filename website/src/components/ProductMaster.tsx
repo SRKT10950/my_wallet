@@ -43,10 +43,10 @@ export const ProductMaster: React.FC<ProductMasterProps> = ({
     const q = searchQuery.toLowerCase();
     return matchesCat && (
       p.productName.toLowerCase().includes(q) ||
-      p.localName.toLowerCase().includes(q) ||
+      (p.localName && p.localName.toLowerCase().includes(q)) ||
       p.category.toLowerCase().includes(q) ||
-      p.appName.toLowerCase().includes(q) ||
-      p.description.toLowerCase().includes(q)
+      (p.appName && p.appName.toLowerCase().includes(q)) ||
+      (p.description && p.description.toLowerCase().includes(q))
     );
   });
 
@@ -56,7 +56,7 @@ export const ProductMaster: React.FC<ProductMasterProps> = ({
     const q = catalogSearch.toLowerCase();
     return matchesCat && (
       p.productName.toLowerCase().includes(q) ||
-      p.localName.toLowerCase().includes(q) ||
+      (p.localName && p.localName.toLowerCase().includes(q)) ||
       p.category.toLowerCase().includes(q)
     );
   });

@@ -2,19 +2,19 @@ export interface Product {
   id?: number;
   userId?: string;
   productName: string;
-  localName: string;
+  localName?: string;
   category: string;
-  referenceLink: string;
-  appName: string;
-  priceDate: string;
+  referenceLink?: string;
+  appName?: string;
+  priceDate?: string;
   currentPrice: number;
-  oldPrice: number;
+  oldPrice?: number;
   unit: string;
   quantity: number;
-  barcode: string;
+  barcode?: string;
   qrCode?: string;
-  imageUrl: string;
-  description: string; // Strictly lowercase DB column 'description'
+  imageUrl?: string;
+  description?: string; // Strictly lowercase DB column 'description'
   active: boolean;
   deleted?: boolean;
 }

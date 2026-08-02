@@ -22,7 +22,7 @@ class DbSyncService {
     await DbSyncServiceApi.deleteRecord(table, keyColumn, keyValue, userId);
   }
 
-  static Future<void> clearTable(String table) async {
-    await DbSyncServiceApi.clearTable(table);
+  static Future<void> clearTable(String table, [String userId = 'user_1']) async {
+    await DbSyncServiceApi.clearTable(table, userId);
   }
 }
