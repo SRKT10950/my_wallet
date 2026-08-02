@@ -12,6 +12,7 @@ import '../models/category.dart';
 import '../models/wallet_account.dart';
 import '../models/contact.dart';
 import '../models/product.dart';
+import '../models/transaction_item.dart';
 import '../utils/string_utils.dart';
 import '../utils/messaging_utils.dart';
 import 'category_manager_screen.dart';
@@ -462,11 +463,15 @@ class _TransactionSheetState extends State<TransactionSheet> {
   bool _cleared = true;
   String _transactionType = 'Expense';
   bool _isCustomShopInput = false;
+  List<TransactionItem> _stagedChildItems = [];
 
   @override
   void initState() {
     super.initState();
     if (widget.transaction != null) {
+      if (widget.transaction!.items.isNotEmpty) {
+        _stagedChildItems = List.from(widget.transaction!.items);
+      }
       _selectedDate = DateTime.tryParse(widget.transaction!.date) ?? DateTime.now();
       _itemController.text = widget.transaction!.itemService;
       _costController.text = widget.transaction!.cost.toStringAsFixed(0);
@@ -566,6 +571,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
         tags: tags,
         note: _noteController.text.trim(),
         merchantName: shopFormatted,
+        items: _stagedChildItems,
       );
 
       if (widget.transaction == null) {
@@ -1140,6 +1146,23 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                 _paidController.text = newTotal.toStringAsFixed(0);
                               }
                             }
+
+                            _stagedChildItems.addAll(selectedItems.map((item) {
+                              final nameToUse = item.product != null
+                                  ? (item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim())
+                                  : item.customName;
+                              return TransactionItem(
+                                productId: item.product?.id,
+                                itemName: nameToUse,
+                                localName: item.product?.localName ?? '',
+                                category: item.product?.category ?? 'General',
+                                quantity: item.quantity,
+                                unit: item.selectedUnit,
+                                unitPrice: item.unitPrice,
+                                totalPrice: item.totalPrice,
+                              );
+                            }));
+
                             setState(() {});
                           }
                           Navigator.pop(ctx);

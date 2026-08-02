@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart' hide Category;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/category.dart';
 import '../models/transaction.dart';
+import '../models/transaction_item.dart';
 import '../models/loan.dart';
 import '../models/income_config.dart';
 import '../models/lend_borrow.dart';
@@ -42,6 +43,7 @@ class FinanceProvider with ChangeNotifier {
 
   List<Category> _categories = [];
   List<DailyTransaction> _transactions = [];
+  List<TransactionItem> _transactionItems = [];
   List<Loan> _loans = [];
   List<IncomeConfig> _incomeConfigs = [];
   List<LendBorrow> _lendBorrows = [];
@@ -287,6 +289,14 @@ class FinanceProvider with ChangeNotifier {
 
       final transData = await db.loadList('transactions');
       _transactions = transData.map((t) => DailyTransaction.fromMap(t)).toList();
+
+      final itemsData = await db.loadList('transaction_items');
+      _transactionItems = itemsData.map((i) => TransactionItem.fromMap(i)).toList();
+
+      _transactions = _transactions.map((t) {
+        final childItems = _transactionItems.where((i) => i.transactionId == t.id && !i.deleted).toList();
+        return t.copyWith(items: childItems);
+      }).toList();
 
       final loansData = await db.loadList('loans');
       _loans = loansData.map((l) => Loan.fromMap(l)).toList();
@@ -979,9 +989,18 @@ class FinanceProvider with ChangeNotifier {
       tags: tx.tags,
       note: tx.note,
       merchantName: tx.merchantName,
+      items: tx.items,
     );
     _transactions.add(newTx);
     await _saveData('transactions', _transactions, targetItem: newTx);
+
+    if (tx.items.isNotEmpty) {
+      for (var item in tx.items) {
+        final childItem = item.copyWith(transactionId: newTx.id);
+        _transactionItems.add(childItem);
+      }
+      await _saveData('transaction_items', _transactionItems);
+    }
   }
 
   Future<void> updateTransaction(DailyTransaction tx) async {
@@ -989,6 +1008,15 @@ class FinanceProvider with ChangeNotifier {
     if (index != -1) {
       _transactions[index] = tx;
       await _saveData('transactions', _transactions, targetItem: tx);
+
+      if (tx.items.isNotEmpty) {
+        _transactionItems.removeWhere((i) => i.transactionId == tx.id);
+        for (var item in tx.items) {
+          final childItem = item.copyWith(transactionId: tx.id);
+          _transactionItems.add(childItem);
+        }
+        await _saveData('transaction_items', _transactionItems);
+      }
     }
   }
 
@@ -998,6 +1026,13 @@ class FinanceProvider with ChangeNotifier {
       final updated = _transactions[index].copyWith(deleted: true);
       _transactions[index] = updated;
       await _saveData('transactions', _transactions, targetItem: updated);
+
+      for (int i = 0; i < _transactionItems.length; i++) {
+        if (_transactionItems[i].transactionId == id) {
+          _transactionItems[i] = _transactionItems[i].copyWith(deleted: true);
+        }
+      }
+      await _saveData('transaction_items', _transactionItems);
     }
   }
 

@@ -19,6 +19,21 @@ export interface Product {
   deleted?: boolean;
 }
 
+export interface TransactionItem {
+  id?: number;
+  transactionId?: number;
+  userId?: string;
+  productId?: number;
+  itemName: string;
+  localName?: string;
+  category?: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  totalPrice: number;
+  deleted?: boolean;
+}
+
 export interface Transaction {
   id: number;
   title: string;
@@ -28,6 +43,7 @@ export interface Transaction {
   date: string;
   account: string;
   merchantName?: string;
+  items?: TransactionItem[];
 }
 
 export interface Category {

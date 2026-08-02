@@ -69,6 +69,26 @@ CREATE TABLE transactions (
 ''');
 
     await db.execute('''
+CREATE TABLE IF NOT EXISTS transaction_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  transaction_id INTEGER,
+  user_id TEXT NOT NULL DEFAULT 'user_1',
+  product_id INTEGER,
+  item_name TEXT NOT NULL,
+  local_name TEXT DEFAULT '',
+  category TEXT DEFAULT 'General',
+  quantity REAL NOT NULL DEFAULT 1.0,
+  unit TEXT NOT NULL DEFAULT 'Pcs',
+  unit_price REAL NOT NULL DEFAULT 0.0,
+  total_price REAL NOT NULL DEFAULT 0.0,
+  deleted INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER,
+  updated_at INTEGER,
+  FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+);
+''');
+
+    await db.execute('''
 CREATE TABLE loans (
   id $idType,
   lender $textType,

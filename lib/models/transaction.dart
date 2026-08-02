@@ -1,4 +1,5 @@
 import '../utils/string_utils.dart';
+import 'transaction_item.dart';
 
 class DailyTransaction {
   final int? id;
@@ -15,6 +16,7 @@ class DailyTransaction {
   final String note;
   final String merchantName;
   final bool deleted;
+  final List<TransactionItem> items;
 
   DailyTransaction({
     this.id,
@@ -31,6 +33,7 @@ class DailyTransaction {
     this.note = '',
     this.merchantName = '',
     this.deleted = false,
+    this.items = const [],
   });
 
   double get remaining => cost - paidAmount;
@@ -107,6 +110,7 @@ class DailyTransaction {
     String? note,
     String? merchantName,
     bool? deleted,
+    List<TransactionItem>? items,
   }) {
     return DailyTransaction(
       id: id ?? this.id,
@@ -123,6 +127,7 @@ class DailyTransaction {
       note: note ?? this.note,
       merchantName: merchantName ?? this.merchantName,
       deleted: deleted ?? this.deleted,
+      items: items ?? this.items,
     );
   }
 }
