@@ -56,5 +56,38 @@ void main() {
       expect(item.localName, contains('आलू'));
       expect(item.totalPrice, 60.0);
     });
+    test('DailyTransaction search matches merchant/shop name', () {
+      final tx1 = DailyTransaction(
+        date: '2026-08-07',
+        categoryId: 1,
+        itemService: 'Weekly Provisions',
+        cost: 300.0,
+        paidAmount: 300.0,
+        cleared: true,
+        merchantName: 'SuperMart Supplies',
+      );
+
+      final tx2 = DailyTransaction(
+        date: '2026-08-07',
+        categoryId: 1,
+        itemService: 'Stationery',
+        cost: 100.0,
+        paidAmount: 100.0,
+        cleared: true,
+        merchantName: 'Corner Book Depot',
+      );
+
+      final txs = [tx1, tx2];
+      final query = 'supermart';
+
+      final results = txs.where((tx) {
+        final q = query.toLowerCase();
+        return tx.itemService.toLowerCase().contains(q) ||
+            tx.merchantName.toLowerCase().contains(q);
+      }).toList();
+
+      expect(results.length, 1);
+      expect(results.first.merchantName, 'SuperMart Supplies');
+    });
   });
 }

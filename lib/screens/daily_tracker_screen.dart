@@ -94,9 +94,24 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
     // Filter transactions
     var filteredTransactions = provider.transactions.reversed.where((tx) {
       // 1. Search filter
-      final matchesSearch = tx.itemService.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          tx.note.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          tx.tags.any((t) => t.toLowerCase().contains(_searchQuery.toLowerCase()));
+      final q = _searchQuery.trim().toLowerCase();
+      final matchesSearch = q.isEmpty ||
+          tx.itemService.toLowerCase().contains(q) ||
+          tx.note.toLowerCase().contains(q) ||
+          tx.merchantName.toLowerCase().contains(q) ||
+          tx.tags.any((t) => t.toLowerCase().contains(q)) ||
+          tx.items.any((i) => i.itemName.toLowerCase().contains(q) || i.localName.toLowerCase().contains(q)) ||
+          provider.contacts.any((c) {
+            final matchesContact = c.name.toLowerCase().contains(q) ||
+                (c.businessName.isNotEmpty && c.businessName.toLowerCase().contains(q));
+            if (!matchesContact) return false;
+            final txMerchant = tx.merchantName.toLowerCase();
+            final cName = c.name.toLowerCase();
+            final bName = c.businessName.toLowerCase();
+            return (cName.isNotEmpty && txMerchant.contains(cName)) ||
+                (bName.isNotEmpty && txMerchant.contains(bName)) ||
+                tx.tags.any((t) => t.toLowerCase() == 'shop:$cName' || (bName.isNotEmpty && t.toLowerCase() == 'shop:$bName'));
+          });
       
       // 2. Account filter
       bool matchesAccount = true;
@@ -155,7 +170,7 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
                     onChanged: (val) => setState(() => _searchQuery = val),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Search transactions, notes, or shops...',
+                      hintText: 'Search items, notes, contact, or shop name...',
                       hintStyle: const TextStyle(color: Colors.grey),
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       filled: true,
