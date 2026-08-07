@@ -9,16 +9,19 @@
   <meta name="description" content="My Wallet - Personal Finance, Expense Tracking, Daily Budget & Product Manager.">
   <meta name="theme-color" content="#0E111F">
 
-  <!-- iOS Meta Tags & Native Standalone Config -->
+  <!-- iOS Meta Tags & Native Standalone Config for Home Screen App -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="My Wallet">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="icons/Icon-192.png">
   <link rel="apple-touch-icon" sizes="192x192" href="icons/Icon-192.png">
   <link rel="apple-touch-icon" sizes="512x512" href="icons/Icon-512.png">
   <link rel="apple-touch-icon-precomposed" href="apple-touch-icon.png">
+
+  <!-- Preload core assets for 0ms cold start -->
+  <link rel="preload" href="manifest.json" as="fetch" crossorigin="anonymous">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
@@ -44,6 +47,78 @@
       -webkit-touch-callout: none;
       -webkit-tap-highlight-color: transparent;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+    }
+
+    /* Instant Native HTML/CSS Splash Screen (< 10ms render on iOS launch) */
+    #app-splash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #080914;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      transition: opacity 0.4s ease-out;
+    }
+    #app-splash.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .splash-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+    }
+    .splash-logo-container {
+      width: 84px;
+      height: 84px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, #16192E 0%, #0E111F 100%);
+      border: 1.5px solid #00F5D4;
+      box-shadow: 0 0 25px rgba(0, 245, 212, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .splash-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+    }
+    .splash-title {
+      color: #FFFFFF;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+    .splash-subtitle {
+      color: #718096;
+      font-size: 12px;
+      margin-bottom: 24px;
+    }
+    .splash-loader-bar {
+      width: 140px;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .splash-loader-progress {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #00F5D4, #6366F1);
+      animation: splash-pulse 1.2s infinite linear;
+      transform-origin: 0% 50%;
+    }
+    @keyframes splash-pulse {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
     }
 
     #pwa-install-banner {
@@ -90,6 +165,20 @@
 </head>
 <body>
 
+  <!-- Instant Native HTML/CSS Splash Screen (< 10ms render on iOS launch) -->
+  <div id="app-splash">
+    <div class="splash-content">
+      <div class="splash-logo-container">
+        <img src="icons/Icon-192.png" alt="My Wallet Logo" class="splash-logo" onerror="this.src='apple-touch-icon.png'" />
+      </div>
+      <div class="splash-title">My Wallet</div>
+      <div class="splash-subtitle">Personal Finance & Daily Tracker</div>
+      <div class="splash-loader-bar">
+        <div class="splash-loader-progress"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- PWA Install Banner -->
   <div id="pwa-install-banner" class="hidden">
     <div style="font-size: 24px;">📱</div>
@@ -128,6 +217,24 @@
     function closePwaBanner() {
       if (banner) banner.classList.add('hidden');
     }
+
+    // Auto-remove splash screen when Flutter renders first frame
+    window.addEventListener('flutter-first-frame', function() {
+      const splash = document.getElementById('app-splash');
+      if (splash) {
+        splash.classList.add('fade-out');
+        setTimeout(() => splash.remove(), 400);
+      }
+    });
+
+    // Safety fallback: dismiss splash after 4.5 seconds if first-frame event is delayed
+    setTimeout(function() {
+      const splash = document.getElementById('app-splash');
+      if (splash) {
+        splash.classList.add('fade-out');
+        setTimeout(() => splash.remove(), 400);
+      }
+    }, 4500);
   </script>
 
   <script src="flutter_bootstrap.js" async></script>

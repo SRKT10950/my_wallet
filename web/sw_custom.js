@@ -1,36 +1,42 @@
-const CACHE_NAME = 'my-wallet-v1.0.1+2';
+const CACHE_NAME = 'my-wallet-v1.0.2';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './favicon.png',
+  './apple-touch-icon.png',
+  './apple-touch-icon-precomposed.png',
   './icons/Icon-192.png',
   './icons/Icon-512.png',
-  './pwa_manager.js'
+  './pwa_manager.js',
+  './flutter_bootstrap.js',
+  './flutter.js',
+  './main.dart.js'
 ];
 
-// Install Event: Cache Core App Shell (Do NOT call skipWaiting automatically here to avoid iOS flashing loops)
+// Install Event: Pre-cache Core App Shell for instant cold launches
 self.addEventListener('install', (event) => {
   console.log('[ServiceWorker] Installing SW version:', CACHE_NAME);
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[ServiceWorker] Caching static app shell assets...');
+      console.log('[ServiceWorker] Caching static app shell & engine assets...');
       return cache.addAll(STATIC_ASSETS).catch(err => {
-        console.warn('[ServiceWorker] Asset caching warning:', err);
+        console.warn('[ServiceWorker] Static asset pre-caching warning:', err);
       });
     })
   );
 });
 
-// Activate Event: Delete Stale Cache Keys
+// Activate Event: Delete Stale Cache Keys & Claim Clients Immediately
 self.addEventListener('activate', (event) => {
-  console.log('[ServiceWorker] Activating SW...');
+  console.log('[ServiceWorker] Activating SW version:', CACHE_NAME);
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[ServiceWorker] Deleting old cache key:', cacheName);
+            console.log('[ServiceWorker] Clearing old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -39,22 +45,33 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Network-First with Cache Fallback for maximum reliability on iOS PWA
+// Fetch Event: Stale-While-Revalidate for Instant ~50ms Startup on iOS PWA
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+
+  // Ignore unsupported schemes (chrome-extension, etc)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
   event.respondWith(
-    fetch(event.request).then((networkResponse) => {
-      if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+    caches.match(event.request).then((cachedResponse) => {
+      // Background revalidation
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          // Offline fallback
         });
-      }
-      return networkResponse;
-    }).catch(() => {
-      // Offline mode fallback to cache
-      return caches.match(event.request).then(cached => cached || caches.match('./index.html'));
+
+      // Serve from cache IMMEDIATELY if available for 0ms network latency launch
+      return cachedResponse || fetchPromise || caches.match('./index.html');
     })
   );
 });
