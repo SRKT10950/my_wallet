@@ -969,7 +969,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                               localName: customItem.localName,
                                               unit: customItem.selectedUnit,
                                               quantity: customItem.quantity,
-                                              category: selectedCategory?.name ?? 'General',
+                                              category: selectedCategory == 'All' ? 'General' : selectedCategory,
                                             ));
                                           }
 
