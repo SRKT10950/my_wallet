@@ -138,26 +138,15 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
     }).toList();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Daily Tracker'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.storefront_rounded, color: Colors.tealAccent),
-            tooltip: 'Shop Bills & Monthly Ledgers',
-            onPressed: () => _showShopLedgerModal(context),
+      body: SafeArea(
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF080914), Color(0xFF0E111F)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
           ),
-        ],
-      ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF080914), Color(0xFF0E111F)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
         child: Column(
           children: [
             // Search Bar & Filter Strip
@@ -456,7 +445,8 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
+    ),
+    floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showTransactionModal(context),
         backgroundColor: const Color(0xFF6366F1),
         icon: const Icon(Icons.add, color: Colors.white),
