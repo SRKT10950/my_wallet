@@ -15,6 +15,7 @@ import '../models/product.dart';
 import '../models/transaction_item.dart';
 import '../utils/string_utils.dart';
 import '../utils/messaging_utils.dart';
+import '../utils/hinglish_translator.dart';
 import 'category_manager_screen.dart';
 
 class DailyTrackerScreen extends StatefulWidget {
@@ -29,6 +30,7 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
   WalletAccount? _accountFilter;
   String _typeFilter = 'All'; // 'All', 'Expense', 'Income', 'Transfer'
   String? _tagFilter;
+  bool _onlyDueFilter = false;
 
   void _showTransactionModal(BuildContext context, {DailyTransaction? transaction}) {
     final provider = Provider.of<FinanceProvider>(context, listen: false);
@@ -114,7 +116,10 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
       final matchesTag = _tagFilter == null || 
           tx.tags.map((t) => t.toLowerCase()).contains(_tagFilter!.toLowerCase());
 
-      return matchesSearch && matchesAccount && matchesType && matchesTag;
+      // 5. Due filter
+      final matchesDue = !_onlyDueFilter || (tx.cost > tx.paidAmount);
+
+      return matchesSearch && matchesAccount && matchesType && matchesTag && matchesDue;
     }).toList();
 
     return Scaffold(
@@ -176,6 +181,31 @@ class _DailyTrackerScreenState extends State<DailyTrackerScreen> {
                           onPressed: () => _showShopLedgerModal(context),
                         ),
                         const SizedBox(width: 8),
+                        // Due Only Filter Chip
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: FilterChip(
+                            avatar: Icon(
+                              Icons.warning_amber_rounded,
+                              size: 14,
+                              color: _onlyDueFilter ? Colors.black : Colors.redAccent,
+                            ),
+                            label: Text(
+                              'Due Only',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _onlyDueFilter ? Colors.black : Colors.white,
+                              ),
+                            ),
+                            selected: _onlyDueFilter,
+                            selectedColor: Colors.redAccent,
+                            backgroundColor: const Color(0xFF121422),
+                            onSelected: (val) {
+                              setState(() => _onlyDueFilter = val);
+                            },
+                          ),
+                        ),
                         // Type Filter Chips
                         ...['All', 'Expense', 'Income', 'Transfer'].map((type) {
                           final isSelected = _typeFilter == type;
@@ -910,16 +940,39 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                       ),
                                       onPressed: () async {
-                                        final customItem = _SelectedItem(customName: query, quantity: 1.0, selectedUnit: 'Pcs');
+                                        final localLang = HinglishTranslator.translateToHinglish(query);
+                                        final customItem = _SelectedItem(
+                                          customName: query,
+                                          localName: localLang,
+                                          quantity: 1.0,
+                                          selectedUnit: 'Pcs',
+                                        );
                                         final res = await _showEditItemQuantityAndUnitDialog(
                                           context,
                                           title: query,
+                                          initialLocalName: localLang,
                                           initialUnit: 'Pcs',
                                           initialQty: 1.0,
+                                          isCustom: true,
                                         );
                                         if (res != null && res.quantity > 0) {
+                                          if (res.customName.isNotEmpty) customItem.customName = res.customName;
+                                          customItem.localName = res.localName;
                                           customItem.quantity = res.quantity;
                                           customItem.selectedUnit = res.unit;
+
+                                          final provider = Provider.of<FinanceProvider>(context, listen: false);
+                                          final exists = provider.products.any((p) => p.productName.toLowerCase() == customItem.customName.toLowerCase());
+                                          if (!exists && customItem.customName.isNotEmpty) {
+                                            provider.addProduct(Product(
+                                              productName: customItem.customName,
+                                              localName: customItem.localName,
+                                              unit: customItem.selectedUnit,
+                                              quantity: customItem.quantity,
+                                              category: selectedCategory?.name ?? 'General',
+                                            ));
+                                          }
+
                                           setModalState(() {
                                             selectedItems.add(customItem);
                                             searchCtrl.clear();
@@ -993,6 +1046,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                                   final res = await _showEditItemQuantityAndUnitDialog(
                                                     context,
                                                     title: p.productName,
+                                                    initialLocalName: p.localName,
                                                     initialUnit: selectedItems[existingIdx].selectedUnit,
                                                     initialQty: selectedItems[existingIdx].quantity,
                                                   );
@@ -1070,7 +1124,7 @@ class _TransactionSheetState extends State<TransactionSheet> {
                         children: selectedItems.map((item) {
                           final nameToUse = item.product != null
                               ? (item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim())
-                              : item.customName;
+                              : (item.localName.trim().isNotEmpty ? '${item.customName} (${item.localName})' : item.customName);
                           final label = '$nameToUse (${_formatQuantity(item.quantity)} ${item.selectedUnit}) ✏️';
                           return ActionChip(
                             backgroundColor: Colors.tealAccent.withValues(alpha: 0.2),
@@ -1080,14 +1134,20 @@ class _TransactionSheetState extends State<TransactionSheet> {
                               final res = await _showEditItemQuantityAndUnitDialog(
                                 context,
                                 title: item.product?.productName ?? item.customName,
+                                initialLocalName: item.product?.localName ?? item.localName,
                                 initialUnit: item.selectedUnit,
                                 initialQty: item.quantity,
+                                isCustom: item.product == null,
                               );
                               if (res != null) {
                                 setModalState(() {
                                   if (res.quantity <= 0) {
                                     selectedItems.remove(item);
                                   } else {
+                                    if (item.product == null && res.customName.isNotEmpty) {
+                                      item.customName = res.customName;
+                                    }
+                                    item.localName = res.localName;
                                     item.quantity = res.quantity;
                                     item.selectedUnit = res.unit;
                                   }
@@ -1118,7 +1178,8 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                 final nameToUse = single.product!.localName.trim().isNotEmpty ? single.product!.localName.trim() : single.product!.productName.trim();
                                 newItemsStr = '$nameToUse (${_formatQuantity(single.quantity)} ${single.selectedUnit})';
                               } else {
-                                newItemsStr = '${single.customName} (${_formatQuantity(single.quantity)} ${single.selectedUnit})';
+                                final nameToUse = single.localName.trim().isNotEmpty ? '${single.customName} (${single.localName})' : single.customName;
+                                newItemsStr = '$nameToUse (${_formatQuantity(single.quantity)} ${single.selectedUnit})';
                               }
                             } else {
                               newItemsStr = selectedItems.map((item) {
@@ -1126,7 +1187,8 @@ class _TransactionSheetState extends State<TransactionSheet> {
                                   final nameToUse = item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim();
                                   return '• $nameToUse (${_formatQuantity(item.quantity)} ${item.selectedUnit})';
                                 } else {
-                                  return '• ${item.customName} (${_formatQuantity(item.quantity)} ${item.selectedUnit})';
+                                  final nameToUse = item.localName.trim().isNotEmpty ? '${item.customName} (${item.localName})' : item.customName;
+                                  return '• $nameToUse (${_formatQuantity(item.quantity)} ${item.selectedUnit})';
                                 }
                               }).join('\n');
                             }
@@ -1148,13 +1210,10 @@ class _TransactionSheetState extends State<TransactionSheet> {
                             }
 
                             _stagedChildItems.addAll(selectedItems.map((item) {
-                              final nameToUse = item.product != null
-                                  ? (item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim())
-                                  : item.customName;
                               return TransactionItem(
                                 productId: item.product?.id,
-                                itemName: nameToUse,
-                                localName: item.product?.localName ?? '',
+                                itemName: item.product?.productName ?? item.customName,
+                                localName: item.product?.localName ?? item.localName,
                                 category: item.product?.category ?? 'General',
                                 quantity: item.quantity,
                                 unit: item.selectedUnit,
@@ -1532,6 +1591,7 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
   int? _selectedMonth = DateTime.now().month; // null = All months
   int _selectedYear = DateTime.now().year;
   String _selectedShop = 'All'; // 'All' or specific shop name
+  bool _onlyDueFilter = false;
 
   void _shareShopInvoice(BuildContext context, String shopName, double totalCost, double totalPaid, double totalDue, List<DailyTransaction> shopTxs) {
     final monthText = _selectedMonth != null
@@ -1849,6 +1909,7 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
         final matchesTag = tx.tags.contains('shop:${_selectedShop.toLowerCase()}');
         if (!matchesName && !matchesTag) return false;
       }
+      if (_onlyDueFilter && tx.cost <= tx.paidAmount) return false;
       return true;
     }).toList();
 
@@ -1913,10 +1974,23 @@ class _ShopLedgerSheetState extends State<ShopLedgerSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Shop Bills & Monthly Ledgers', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-              Chip(
-                label: Text('${filteredTxs.length} Entries', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 11)),
-                backgroundColor: Colors.tealAccent,
-                side: BorderSide.none,
+              Row(
+                children: [
+                  FilterChip(
+                    avatar: Icon(Icons.warning_amber_rounded, size: 12, color: _onlyDueFilter ? Colors.black : Colors.redAccent),
+                    label: Text('Due Only', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: _onlyDueFilter ? Colors.black : Colors.white)),
+                    selected: _onlyDueFilter,
+                    selectedColor: Colors.redAccent,
+                    backgroundColor: const Color(0xFF121422),
+                    onSelected: (v) => setState(() => _onlyDueFilter = v),
+                  ),
+                  const SizedBox(width: 8),
+                  Chip(
+                    label: Text('${filteredTxs.length} Entries', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 11)),
+                    backgroundColor: Colors.tealAccent,
+                    side: BorderSide.none,
+                  ),
+                ],
               ),
             ],
           ),
@@ -2318,7 +2392,8 @@ class _SearchablePicklistFieldState extends State<SearchablePicklistField> {
 
 class _SelectedItem {
   final Product? product;
-  final String customName;
+  String customName;
+  String localName;
   double quantity;
   double unitPrice;
   String selectedUnit;
@@ -2326,6 +2401,7 @@ class _SelectedItem {
   _SelectedItem({
     this.product,
     this.customName = '',
+    this.localName = '',
     this.quantity = 1.0,
     this.unitPrice = 0.0,
     String? selectedUnit,
@@ -2342,17 +2418,32 @@ String _formatQuantity(double q) {
 }
 
 class _ItemQtyUnitResult {
+  final String customName;
+  final String localName;
   final double quantity;
   final String unit;
-  _ItemQtyUnitResult({required this.quantity, required this.unit});
+  _ItemQtyUnitResult({
+    this.customName = '',
+    this.localName = '',
+    required this.quantity,
+    required this.unit,
+  });
 }
 
 Future<_ItemQtyUnitResult?> _showEditItemQuantityAndUnitDialog(
   BuildContext context, {
   required String title,
+  String initialLocalName = '',
   required String initialUnit,
   required double initialQty,
+  bool isCustom = false,
 }) {
+  final nameCtrl = TextEditingController(text: title);
+  final localNameCtrl = TextEditingController(
+    text: initialLocalName.isNotEmpty
+        ? initialLocalName
+        : (isCustom ? HinglishTranslator.translateToHinglish(title) : ''),
+  );
   final qtyCtrl = TextEditingController(text: _formatQuantity(initialQty));
   String currentUnit = initialUnit;
   final List<String> availableUnits = [
@@ -2370,7 +2461,7 @@ Future<_ItemQtyUnitResult?> _showEditItemQuantityAndUnitDialog(
           return AlertDialog(
             backgroundColor: const Color(0xFF1E2238),
             title: Text(
-              'Set Quantity & Unit ($title)',
+              isCustom ? 'Custom Item Details' : 'Set Quantity & Unit ($title)',
               style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
             ),
             content: SingleChildScrollView(
@@ -2378,6 +2469,56 @@ Future<_ItemQtyUnitResult?> _showEditItemQuantityAndUnitDialog(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (isCustom) ...[
+                    const Text('Item Name (English / Primary):', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: nameCtrl,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                      onChanged: (val) {
+                        if (val.trim().isNotEmpty) {
+                          setDialogState(() {
+                            localNameCtrl.text = HinglishTranslator.translateToHinglish(val.trim());
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Text('Local Language Name:', style: TextStyle(color: Colors.amberAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        IconButton(
+                          icon: const Icon(Icons.auto_awesome, color: Colors.amberAccent, size: 18),
+                          tooltip: 'Auto Translate',
+                          onPressed: () async {
+                            final dynamicTranslated = await HinglishTranslator.translateDynamic(nameCtrl.text);
+                            setDialogState(() {
+                              localNameCtrl.text = dynamicTranslated;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: localNameCtrl,
+                      style: const TextStyle(color: Colors.amberAccent, fontSize: 14, fontWeight: FontWeight.bold),
+                      decoration: const InputDecoration(
+                        hintText: 'e.g. आलू (Aloo)',
+                        hintStyle: TextStyle(color: Colors.white30),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        prefixIcon: Icon(Icons.translate, color: Colors.amberAccent, size: 18),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
                   const Text('Select Unit Type:', style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 6),
                   Wrap(
@@ -2405,7 +2546,6 @@ Future<_ItemQtyUnitResult?> _showEditItemQuantityAndUnitDialog(
                   const SizedBox(height: 8),
                   TextField(
                     controller: qtyCtrl,
-                    autofocus: true,
                     style: const TextStyle(color: Colors.tealAccent, fontSize: 20, fontWeight: FontWeight.bold),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     decoration: InputDecoration(
@@ -2449,7 +2589,15 @@ Future<_ItemQtyUnitResult?> _showEditItemQuantityAndUnitDialog(
                 onPressed: () {
                   final val = double.tryParse(qtyCtrl.text.trim());
                   if (val != null) {
-                    Navigator.pop(ctx, _ItemQtyUnitResult(quantity: val, unit: currentUnit));
+                    Navigator.pop(
+                      ctx,
+                      _ItemQtyUnitResult(
+                        customName: nameCtrl.text.trim(),
+                        localName: localNameCtrl.text.trim(),
+                        quantity: val,
+                        unit: currentUnit,
+                      ),
+                    );
                   } else {
                     Navigator.pop(ctx, null);
                   }
@@ -2634,8 +2782,26 @@ class _ProductScannerSheetState extends State<ProductScannerSheet> {
 
   void _addCustomScannedItem(String text) {
     if (text.trim().isEmpty) return;
+    final localLang = HinglishTranslator.translateToHinglish(text.trim());
+    final customItem = _SelectedItem(
+      customName: text.trim(),
+      localName: localLang,
+    );
+
+    // Save custom item to catalog if not present
+    final provider = widget.provider;
+    final exists = provider.products.any((p) => p.productName.toLowerCase() == customItem.customName.toLowerCase());
+    if (!exists && customItem.customName.isNotEmpty) {
+      provider.addProduct(Product(
+        productName: customItem.customName,
+        localName: customItem.localName,
+        unit: customItem.selectedUnit,
+        quantity: customItem.quantity,
+      ));
+    }
+
     setState(() {
-      _scannedItems.add(_SelectedItem(customName: text.trim()));
+      _scannedItems.add(customItem);
     });
   }
 
@@ -2919,7 +3085,7 @@ class _ProductScannerSheetState extends State<ProductScannerSheet> {
                       final item = entry.value;
                       final name = item.product != null
                           ? (item.product!.localName.trim().isNotEmpty ? item.product!.localName.trim() : item.product!.productName.trim())
-                          : item.customName;
+                          : (item.localName.trim().isNotEmpty ? '${item.customName} (${item.localName})' : item.customName);
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 6),
