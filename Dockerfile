@@ -1,0 +1,25 @@
+# Stage 1: Build Flutter Web application
+FROM ghcr.io/cirrusci/flutter:stable AS build
+
+WORKDIR /app
+
+# Copy pubspec files first to leverage Docker layer caching
+COPY pubspec.yaml pubspec.lock ./
+RUN flutter pub get
+
+# Copy full application code and build web release
+COPY . .
+RUN flutter build web --release
+
+# Stage 2: Serve with lightweight Nginx web server
+FROM nginx:alpine
+
+# Copy custom Nginx configuration for Flutter PWA routing & caching
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy built web artifacts from build stage
+COPY --from=build /app/build/web /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]

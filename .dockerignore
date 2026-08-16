@@ -1,0 +1,15 @@
+.git
+.gitignore
+.dart_tool/
+.idea/
+.vscode/
+build/
+android/
+ios/
+windows/
+macos/
+linux/
+*.apk
+*.log
+add_deleted_column_migration.sql
+database_schema.sql
