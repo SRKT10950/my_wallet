@@ -1,5 +1,5 @@
 # Stage 1: Build Flutter Web application
-FROM ghcr.io/cirrusci/flutter:stable AS build
+FROM plugfox/flutter:stable AS build
 
 WORKDIR /app
 
