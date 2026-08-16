@@ -20,6 +20,6 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built web artifacts from build stage
 COPY --from=build /app/build/web /usr/share/nginx/html
 
-EXPOSE 8082
+EXPOSE 8082 80
 
 CMD ["nginx", "-g", "daemon off;"]
